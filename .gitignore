@@ -1,0 +1,60 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.db
+
+# Node
+node_modules/
+dist/
+.vite/
+coverage/
+.eslintcache
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Databases and persistent data
+mysql_data/
+storage/*
+!storage/pcaps/
+storage/pcaps/*
+!storage/pcaps/.gitkeep
+
+# Network captures and datasets
+*.pcap
+*.pcapng
+*.cap
+
+# ML artifacts
+*.joblib
+*.pkl
+*.model
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+build/
+tmp/
+temp/
