@@ -1080,9 +1080,9 @@ Prioritize the minimum complete application that demonstrates the full detection
 
 ---
 
-## 18. Current Execution State — Day 1 Only
+## 18. Current Execution State — Day 2 Complete
 
-**Current milestone:** Day 1 — Foundation.
+**Current milestone:** Day 2 — secure PCAP/PCAPNG ingestion and packet metadata extraction.
 
 The user is currently developing on Arch Linux (x86_64). The project must remain compatible with macOS ARM64.
 
@@ -1098,56 +1098,25 @@ Keep the project compatible with macOS Apple Silicon (ARM64). The Git repository
 
 Use backend port 8001, frontend port 5174, and host-accessible MySQL port 3307. Check availability before starting services. Existing services use ports 5173, 4000, 8000, 9443, and 11434; do not stop or alter unrelated services or containers.
 
-### Current Task
+### Implemented Day 2 scope
 
-Work exclusively on Day 1.
+- Secure chunked upload with configurable size limits and generated private storage names.
+- Content-based structural validation for classic PCAP 2.4 variants and PCAPNG 1.0 sections.
+- Scapy packet metadata parsing and persistence without packet payloads.
+- Analysis lifecycle and paginated analysis/packet APIs.
+- Upload UI with progress and metadata results.
+- Alembic revision `0002_capture_metadata`, preserving the Day 1 migration.
+- Updated setup, technical learning, and project report documentation.
 
-The first actions are:
+The execution and verification report must be updated with actual checks before committing. The database migration downgrade removes Day 2 columns and packet rows; do not downgrade a populated database. Keep private captures out of Git.
 
-1. Inspect the repository, Git state, configured remote, existing files, and requested port availability.
-2. Preserve existing work and update `.gitignore` only as needed.
-3. Create the project structure, FastAPI backend, and React frontend.
-4. Configure Docker Compose/MySQL, environment settings, SQLAlchemy, and Alembic.
-5. Create only the initial database models and health endpoints.
-6. Add initial backend and frontend tests and setup documentation.
-7. Verify functionality and Git changes before creating a milestone commit.
-8. Push to the already-configured remote only after verification.
+### Strict scope boundary
 
-### Strict Day 1 Restrictions
+Day 3 and later work is not authorized until the user explicitly approves it. Do not implement flow aggregation, flow feature extraction, detection rules, Isolation Forest, model training/inference, hybrid detection, risk scoring, or live capture as part of Day 2.
 
-Do not implement:
+### Completion report
 
-- PCAP parsing.
-- Packet processing.
-- Network flow aggregation.
-- Feature extraction.
-- Rule-based intrusion detection.
-- Isolation Forest.
-- Machine-learning training.
-- Hybrid detection.
-- Live packet capture.
-
-These belong to later milestones.
-
-Do not begin Day 2 until the user explicitly approves moving forward.
-
-### Completion Report
-
-At the end of Day 1, report:
-
-- Project directory structure.
-- Backend implementation.
-- Frontend implementation.
-- Database configuration.
-- Docker Compose status.
-- Database migration status.
-- Tests executed and results.
-- Git branch.
-- Commit hash.
-- Commit message.
-- GitHub push status.
-- Remaining issues.
-- Exact next steps for Day 2.
+Report actual files changed, API and validation behavior, packet metadata, migration status, frontend capability, security measures, executed test/lint/build/startup checks, report and DOCX export status, branch/commit/push status, remaining limitations, and the exact Day 3 starting point. Never claim unexecuted checks.
 
 ---
 
@@ -1190,4 +1159,4 @@ Do not fabricate functionality, metrics, research, or test results.
 
 Do not silently expand the scope.
 
-**Current authorization: Day 1 foundation only. Wait for explicit user approval before starting Day 2.**
+**Current authorization: Day 2 only. Wait for explicit user approval before starting Day 3.**
