@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.models.flow import NetworkFlow
     from app.models.packet import PacketRecord
 
 
@@ -29,7 +30,18 @@ class Analysis(Base):
     packet_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     error_message: Mapped[str | None] = mapped_column(Text)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    flow_generation_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="not_started", server_default="not_started"
+    )
+    flow_count: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=0, server_default="0"
+    )
+    flow_error_message: Mapped[str | None] = mapped_column(Text)
+    flows_generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     packets: Mapped[list["PacketRecord"]] = relationship(
+        back_populates="analysis", cascade="all, delete-orphan", passive_deletes=True
+    )
+    flows: Mapped[list["NetworkFlow"]] = relationship(
         back_populates="analysis", cascade="all, delete-orphan", passive_deletes=True
     )

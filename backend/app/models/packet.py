@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, ForeignKey, Index, Integer, Numeric, String
+from sqlalchemy import BigInteger, Boolean, ForeignKey, Index, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -14,6 +14,14 @@ class PacketRecord(Base):
     __tablename__ = "packet_metadata"
     __table_args__ = (
         Index("uq_packet_analysis_index", "analysis_id", "packet_index", unique=True),
+        Index("ix_packet_analysis_timestamp", "analysis_id", "timestamp", "packet_index"),
+        Index(
+            "ix_packet_analysis_flow_timestamp",
+            "analysis_id",
+            "flow_id",
+            "timestamp",
+            "packet_index",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -21,6 +29,8 @@ class PacketRecord(Base):
         ForeignKey("analyses.id", ondelete="CASCADE"), nullable=False
     )
     packet_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    flow_id: Mapped[str | None] = mapped_column(String(64))
+    flow_forward: Mapped[bool | None] = mapped_column(Boolean)
     timestamp: Mapped[Decimal | None] = mapped_column(Numeric(20, 9))
     source_ip: Mapped[str | None] = mapped_column(String(45))
     destination_ip: Mapped[str | None] = mapped_column(String(45))

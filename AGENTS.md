@@ -1080,9 +1080,9 @@ Prioritize the minimum complete application that demonstrates the full detection
 
 ---
 
-## 18. Current Execution State — Day 2 Complete
+## 18. Current Execution State — Day 3 Complete
 
-**Current milestone:** Day 2 — secure PCAP/PCAPNG ingestion and packet metadata extraction.
+**Current milestone:** Day 3 — bidirectional flow generation from persisted packet metadata.
 
 The user is currently developing on Arch Linux (x86_64). The project must remain compatible with macOS ARM64.
 
@@ -1098,7 +1098,7 @@ Keep the project compatible with macOS Apple Silicon (ARM64). The Git repository
 
 Use backend port 8001, frontend port 5174, and host-accessible MySQL port 3307. Check availability before starting services. Existing services use ports 5173, 4000, 8000, 9443, and 11434; do not stop or alter unrelated services or containers.
 
-### Implemented Day 2 scope
+### Implemented Day 2 and Day 3 scope
 
 - Secure chunked upload with configurable size limits and generated private storage names.
 - Content-based structural validation for classic PCAP 2.4 variants and PCAPNG 1.0 sections.
@@ -1106,17 +1106,21 @@ Use backend port 8001, frontend port 5174, and host-accessible MySQL port 3307. 
 - Analysis lifecycle and paginated analysis/packet APIs.
 - Upload UI with progress and metadata results.
 - Alembic revision `0002_capture_metadata`, preserving the Day 1 migration.
-- Updated setup, technical learning, and project report documentation.
+- Stable bidirectional flow identification and directional aggregation from stored packet metadata.
+- Packet, byte, timing, packet-length, TCP-flag, and rate features with null behavior for unavailable values.
+- Synchronous, retryable flow-generation API and paginated flow retrieval.
+- Alembic revision `0003_bidirectional_flows`, preserving revisions 0001 and 0002.
+- Flow generation UI and technical/report documentation.
 
-The execution and verification report must be updated with actual checks before committing. The database migration downgrade removes Day 2 columns and packet rows; do not downgrade a populated database. Keep private captures out of Git.
+The execution and verification report must be updated with actual checks before committing. Downgrading revision 0002 removes Day 2 packet/capture data; downgrading revision 0003 removes generated flows and packet assignments. Do not downgrade a populated database unless that data is intentionally discarded. Keep private captures out of Git.
 
 ### Strict scope boundary
 
-Day 3 and later work is not authorized until the user explicitly approves it. Do not implement flow aggregation, flow feature extraction, detection rules, Isolation Forest, model training/inference, hybrid detection, risk scoring, or live capture as part of Day 2.
+Day 4 and later work is not authorized until the user explicitly approves it. Do not implement detection rules, Isolation Forest, model training/inference, hybrid detection, risk scoring, alert generation, or live capture as part of Day 3.
 
 ### Completion report
 
-Report actual files changed, API and validation behavior, packet metadata, migration status, frontend capability, security measures, executed test/lint/build/startup checks, report and DOCX export status, branch/commit/push status, remaining limitations, and the exact Day 3 starting point. Never claim unexecuted checks.
+Report actual files changed, flow-key and statistics behavior, migration status, API/frontend capability, executed test/lint/build/migration/startup checks, report and DOCX export status, branch/commit/push status, remaining limitations, and the exact Day 4 starting point. Never claim unexecuted checks.
 
 ---
 
@@ -1159,4 +1163,4 @@ Do not fabricate functionality, metrics, research, or test results.
 
 Do not silently expand the scope.
 
-**Current authorization: Day 2 only. Wait for explicit user approval before starting Day 3.**
+**Current authorization: Day 3 only. Wait for explicit user approval before starting Day 4.**

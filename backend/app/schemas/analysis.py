@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 AnalysisStatus = Literal["pending", "processing", "completed", "failed"]
+FlowGenerationStatus = Literal["not_started", "processing", "completed", "failed"]
 
 
 class AnalysisRead(BaseModel):
@@ -20,6 +21,10 @@ class AnalysisRead(BaseModel):
     error_message: str | None
     created_at: datetime
     completed_at: datetime | None
+    flow_generation_status: FlowGenerationStatus
+    flow_count: int
+    flow_error_message: str | None
+    flows_generated_at: datetime | None
 
 
 class AnalysisList(BaseModel):

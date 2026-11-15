@@ -10,8 +10,10 @@ import {
   type UploadLimits,
 } from "./api/analyses";
 import { getHealth } from "./api/health";
+import { generateFlows, getFlows, type FlowList } from "./api/flows";
 
 const PACKET_PAGE_SIZE = 50;
+const FLOW_PAGE_SIZE = 50;
 type ServiceStatus = "checking" | "online" | "offline";
 
 export default function App() {
@@ -23,12 +25,17 @@ export default function App() {
     null,
   );
   const [packets, setPackets] = useState<PacketList | null>(null);
+  const [flows, setFlows] = useState<FlowList | null>(null);
   const [offset, setOffset] = useState(0);
+  const [flowOffset, setFlowOffset] = useState(0);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [packetLoading, setPacketLoading] = useState(false);
+  const [flowLoading, setFlowLoading] = useState(false);
+  const [flowGenerating, setFlowGenerating] = useState(false);
+  const [flowError, setFlowError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -59,13 +66,22 @@ export default function App() {
         getAnalysis(id),
         getPackets(id, pageOffset, PACKET_PAGE_SIZE),
       ]);
+      let flowPage: FlowList | null = null;
+      if (analysis.flow_generation_status === "completed") {
+        setFlowLoading(true);
+        flowPage = await getFlows(id, 0, FLOW_PAGE_SIZE);
+      }
       setSelectedAnalysis(analysis);
       setPackets(packetPage);
       setOffset(pageOffset);
+      setFlows(flowPage);
+      setFlowOffset(0);
+      setFlowError(null);
     } catch (error) {
       setPageError(errorMessage(error));
     } finally {
       setPacketLoading(false);
+      setFlowLoading(false);
     }
   }
 
@@ -89,6 +105,8 @@ export default function App() {
       ]);
       setSelectedAnalysis(result);
       setOffset(0);
+      setFlows(null);
+      setFlowOffset(0);
       const firstPage = await getPackets(result.id, 0, PACKET_PAGE_SIZE);
       setPackets(firstPage);
       if (result.status === "failed") {
@@ -100,6 +118,50 @@ export default function App() {
       setUploadError(errorMessage(error));
     } finally {
       setUploadProgress(null);
+    }
+  }
+
+  async function handleGenerateFlows() {
+    if (!selectedAnalysis) return;
+    setFlowGenerating(true);
+    setFlowError(null);
+    try {
+      const result = await generateFlows(selectedAnalysis.id);
+      const updatedAnalysis = {
+        ...selectedAnalysis,
+        flow_generation_status: result.status,
+        flow_count: result.flow_count,
+        flow_error_message: null,
+        flows_generated_at: result.flows_generated_at,
+      };
+      setSelectedAnalysis(updatedAnalysis);
+      setAnalyses((current) =>
+        current.map((item) =>
+          item.id === updatedAnalysis.id ? updatedAnalysis : item,
+        ),
+      );
+      setFlowOffset(0);
+      setFlowLoading(true);
+      setFlows(await getFlows(selectedAnalysis.id, 0, FLOW_PAGE_SIZE));
+    } catch (error) {
+      setFlowError(errorMessage(error));
+    } finally {
+      setFlowGenerating(false);
+      setFlowLoading(false);
+    }
+  }
+
+  async function loadFlowPage(pageOffset: number) {
+    if (!selectedAnalysis) return;
+    setFlowLoading(true);
+    setFlowError(null);
+    try {
+      setFlows(await getFlows(selectedAnalysis.id, pageOffset, FLOW_PAGE_SIZE));
+      setFlowOffset(pageOffset);
+    } catch (error) {
+      setFlowError(errorMessage(error));
+    } finally {
+      setFlowLoading(false);
     }
   }
 
@@ -403,6 +465,152 @@ export default function App() {
           </section>
         )}
 
+        {selectedAnalysis && (
+          <section className="mt-6 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold">Bidirectional flows</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  {selectedAnalysis.flow_count} flows ·{" "}
+                  {selectedAnalysis.flow_generation_status.replaceAll("_", " ")}
+                </p>
+              </div>
+              {selectedAnalysis.status === "completed" &&
+                selectedAnalysis.flow_generation_status !== "completed" && (
+                  <button
+                    type="button"
+                    onClick={() => void handleGenerateFlows()}
+                    disabled={
+                      flowGenerating ||
+                      selectedAnalysis.flow_generation_status === "processing"
+                    }
+                    className="rounded-lg border border-signal/40 bg-signal/10 px-4 py-2 text-sm font-semibold text-signal disabled:opacity-50"
+                  >
+                    {flowGenerating
+                      ? "Generating flows…"
+                      : selectedAnalysis.flow_generation_status === "failed"
+                        ? "Retry flow generation"
+                        : "Generate flows"}
+                  </button>
+                )}
+            </div>
+            {selectedAnalysis.flow_error_message && (
+              <p className="mt-3 text-sm text-rose-300" role="alert">
+                {selectedAnalysis.flow_error_message}
+              </p>
+            )}
+            {flowError && (
+              <p className="mt-3 text-sm text-rose-300" role="alert">
+                {flowError}
+              </p>
+            )}
+            {flowLoading ? (
+              <p className="py-8 text-center text-sm text-slate-400">
+                Loading flows…
+              </p>
+            ) : selectedAnalysis.flow_generation_status !== "completed" ? (
+              <p className="py-8 text-center text-sm text-slate-500">
+                Generate flows after packet analysis has completed.
+              </p>
+            ) : flows?.items.length ? (
+              <>
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full min-w-[900px] border-collapse text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-line text-slate-500">
+                        <th className="px-3 py-3 font-medium">Endpoint A</th>
+                        <th className="px-3 py-3 font-medium">Endpoint B</th>
+                        <th className="px-3 py-3 font-medium">Protocol</th>
+                        <th className="px-3 py-3 text-right font-medium">
+                          Packets A→B
+                        </th>
+                        <th className="px-3 py-3 text-right font-medium">
+                          Packets B→A
+                        </th>
+                        <th className="px-3 py-3 text-right font-medium">
+                          Bytes
+                        </th>
+                        <th className="px-3 py-3 text-right font-medium">
+                          Duration (s)
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line/70">
+                      {flows.items.map((flow) => (
+                        <tr key={flow.flow_id} className="text-slate-300">
+                          <td className="px-3 py-3 font-mono">
+                            {endpoint(flow.endpoint_a_ip, flow.endpoint_a_port)}
+                          </td>
+                          <td className="px-3 py-3 font-mono">
+                            {endpoint(flow.endpoint_b_ip, flow.endpoint_b_port)}
+                          </td>
+                          <td className="px-3 py-3">
+                            {flow.protocol_name}
+                            {flow.protocol_number === null
+                              ? ""
+                              : ` (${flow.protocol_number})`}
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            {flow.forward_packets} · {flow.forward_bytes} B
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            {flow.backward_packets} · {flow.backward_bytes} B
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            {flow.total_bytes}
+                          </td>
+                          <td className="px-3 py-3 text-right font-mono">
+                            {flow.duration_seconds ?? "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-4 flex items-center justify-between">
+                  <span className="text-xs text-slate-500">
+                    {flows.total === 0 ? 0 : flowOffset + 1}–
+                    {Math.min(flowOffset + flows.items.length, flows.total)} of{" "}
+                    {flows.total}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={flowOffset === 0 || flowLoading}
+                      onClick={() =>
+                        void loadFlowPage(
+                          Math.max(0, flowOffset - FLOW_PAGE_SIZE),
+                        )
+                      }
+                      className="rounded-md border border-line px-3 py-2 text-xs text-slate-300 disabled:opacity-40"
+                    >
+                      Previous flows
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        !flows ||
+                        flowOffset + FLOW_PAGE_SIZE >= flows.total ||
+                        flowLoading
+                      }
+                      onClick={() =>
+                        void loadFlowPage(flowOffset + FLOW_PAGE_SIZE)
+                      }
+                      className="rounded-md border border-line px-3 py-2 text-xs text-slate-300 disabled:opacity-40"
+                    >
+                      Next flows
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="py-8 text-center text-sm text-slate-500">
+                Flow generation completed with no packet conversations.
+              </p>
+            )}
+          </section>
+        )}
+
         <footer className="mt-auto border-t border-line pt-4 text-xs text-slate-600">
           SENTINEL · Authorized network monitoring
         </footer>
@@ -429,7 +637,8 @@ function StatusBadge({ status }: { status: Analysis["status"] }) {
 
 function endpoint(address: string | null, port: number | null): string {
   if (!address) return "—";
-  return port === null ? address : `${address}:${port}`;
+  if (port === null) return address;
+  return address.includes(":") ? `[${address}]:${port}` : `${address}:${port}`;
 }
 
 function formatBytes(bytes: number): string {

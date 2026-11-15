@@ -1,6 +1,8 @@
 import { ApiError, apiBaseUrl, parseResponse } from "./client";
 
 export type AnalysisStatus = "pending" | "processing" | "completed" | "failed";
+export type FlowGenerationStatus =
+  "not_started" | "processing" | "completed" | "failed";
 
 export type Analysis = {
   id: number;
@@ -13,6 +15,10 @@ export type Analysis = {
   error_message: string | null;
   created_at: string;
   completed_at: string | null;
+  flow_generation_status: FlowGenerationStatus;
+  flow_count: number;
+  flow_error_message: string | null;
+  flows_generated_at: string | null;
 };
 
 export type AnalysisList = {
