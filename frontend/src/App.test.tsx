@@ -8,6 +8,11 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Analysis, Packet, PacketList } from "./api/analyses";
+import type {
+  DetectionFinding,
+  DetectionSummary,
+  FindingList,
+} from "./api/detections";
 import type { FlowList, NetworkFlow } from "./api/flows";
 import {
   getAnalyses,
@@ -18,6 +23,11 @@ import {
 } from "./api/analyses";
 import { generateFlows, getFlows } from "./api/flows";
 import { getHealth } from "./api/health";
+import {
+  getDetectionSummary,
+  getFindings,
+  runDetection,
+} from "./api/detections";
 import App from "./App";
 
 vi.mock("./api/analyses", () => ({
@@ -29,6 +39,11 @@ vi.mock("./api/analyses", () => ({
 }));
 
 vi.mock("./api/health", () => ({ getHealth: vi.fn() }));
+vi.mock("./api/detections", () => ({
+  getDetectionSummary: vi.fn(),
+  getFindings: vi.fn(),
+  runDetection: vi.fn(),
+}));
 vi.mock("./api/flows", () => ({
   generateFlows: vi.fn(),
   getFlows: vi.fn(),
@@ -39,6 +54,19 @@ afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getHealth).mockResolvedValue({ status: "ok" });
+  vi.mocked(getDetectionSummary).mockResolvedValue(detectionSummary(1));
+  vi.mocked(getFindings).mockResolvedValue(findingPage([], 0));
+  vi.mocked(runDetection).mockResolvedValue({
+    id: 1,
+    analysis_id: 1,
+    config_hash: "a".repeat(64),
+    status: "completed",
+    finding_count: 1,
+    error_message: null,
+    created_at: "2026-11-15T00:00:00Z",
+    completed_at: "2026-11-15T00:00:01Z",
+    reused: false,
+  });
   vi.mocked(getUploadLimits).mockResolvedValue({
     max_upload_size_bytes: 1024 * 1024,
   });
@@ -242,6 +270,189 @@ describe("SENTINEL PCAP analysis", () => {
       "Flow generation failed.",
     );
   });
+
+  it("runs detection and displays real finding evidence and severity counts", async () => {
+    const selected = {
+      ...analysis(21),
+      flow_generation_status: "completed" as const,
+      flow_count: 6,
+    };
+    vi.mocked(getAnalyses).mockResolvedValue({
+      items: [selected],
+      total: 1,
+      offset: 0,
+      limit: 100,
+    });
+    vi.mocked(getAnalysis).mockResolvedValue(selected);
+    vi.mocked(getDetectionSummary).mockResolvedValueOnce(detectionSummary(21));
+    vi.mocked(runDetection).mockResolvedValue({
+      id: 7,
+      analysis_id: 21,
+      config_hash: "b".repeat(64),
+      status: "completed",
+      finding_count: 1,
+      error_message: null,
+      created_at: "2026-11-15T00:00:00Z",
+      completed_at: "2026-11-15T00:00:01Z",
+      reused: false,
+    });
+    vi.mocked(getDetectionSummary).mockResolvedValueOnce({
+      ...detectionSummary(21),
+      run_id: 7,
+      status: "completed",
+      finding_count: 1,
+      severity_counts: { low: 0, medium: 0, high: 1, critical: 0 },
+      rule_counts: [{ rule_id: "PORT_SCAN", count: 1 }],
+    });
+    vi.mocked(getFindings).mockResolvedValue(findingPage([finding(21)], 1));
+
+    render(<App />);
+    await screen.findByText("synthetic.pcap", { selector: "span" });
+    fireEvent.click(screen.getByRole("button", { name: /synthetic\.pcap/ }));
+    await screen.findByText("Run detection");
+    await waitFor(() => expect(getDetectionSummary).toHaveBeenCalledWith(21));
+    fireEvent.click(screen.getByRole("button", { name: "Run detection" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Multi-port probing" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/source contacted 12 distinct destination ports/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("high: 1")).toBeInTheDocument();
+    expect(runDetection).toHaveBeenCalledWith(21);
+    expect(getFindings).toHaveBeenCalledWith(21, 0, 25, undefined, undefined);
+  });
+
+  it("filters and paginates findings through the API", async () => {
+    const selected = {
+      ...analysis(22),
+      flow_generation_status: "completed" as const,
+      flow_count: 10,
+    };
+    vi.mocked(getAnalyses).mockResolvedValue({
+      items: [selected],
+      total: 1,
+      offset: 0,
+      limit: 100,
+    });
+    vi.mocked(getAnalysis).mockResolvedValue(selected);
+    vi.mocked(getDetectionSummary).mockResolvedValue({
+      ...detectionSummary(22),
+      status: "completed",
+      finding_count: 26,
+    });
+    vi.mocked(getFindings)
+      .mockResolvedValueOnce(
+        findingPage(
+          Array.from({ length: 25 }, (_, i) => finding(i + 1)),
+          26,
+        ),
+      )
+      .mockResolvedValueOnce(findingPage([finding(26)], 26, 25))
+      .mockResolvedValueOnce(findingPage([finding(26)], 1));
+
+    render(<App />);
+    await screen.findByText("synthetic.pcap", { selector: "span" });
+    fireEvent.click(screen.getByRole("button", { name: /synthetic\.pcap/ }));
+    expect(await screen.findByText("1–25 of 26")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next findings" }));
+    await waitFor(() =>
+      expect(getFindings).toHaveBeenLastCalledWith(
+        22,
+        25,
+        25,
+        undefined,
+        undefined,
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("Filter findings by severity"), {
+      target: { value: "critical" },
+    });
+    await waitFor(() =>
+      expect(getFindings).toHaveBeenLastCalledWith(
+        22,
+        0,
+        25,
+        "critical",
+        undefined,
+      ),
+    );
+  });
+
+  it("shows detection errors and not-started empty state", async () => {
+    const selected = {
+      ...analysis(23),
+      flow_generation_status: "completed" as const,
+      flow_count: 1,
+    };
+    vi.mocked(getAnalyses).mockResolvedValue({
+      items: [selected],
+      total: 1,
+      offset: 0,
+      limit: 100,
+    });
+    vi.mocked(getAnalysis).mockResolvedValue(selected);
+    vi.mocked(runDetection).mockRejectedValue(
+      new Error("Detection did not complete."),
+    );
+    render(<App />);
+    await screen.findByText("synthetic.pcap", { selector: "span" });
+    fireEvent.click(screen.getByRole("button", { name: /synthetic\.pcap/ }));
+    await screen.findByText("Run detection");
+    fireEvent.click(screen.getByRole("button", { name: "Run detection" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Detection did not complete.",
+    );
+    expect(
+      screen.getByText("Run detection after flow generation has completed."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a detection loading state until the API returns", async () => {
+    const selected = {
+      ...analysis(24),
+      flow_generation_status: "completed" as const,
+      flow_count: 1,
+    };
+    vi.mocked(getAnalyses).mockResolvedValue({
+      items: [selected],
+      total: 1,
+      offset: 0,
+      limit: 100,
+    });
+    vi.mocked(getAnalysis).mockResolvedValue(selected);
+    let finishRun: (() => void) | undefined;
+    vi.mocked(runDetection).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishRun = () =>
+            resolve({
+              id: 9,
+              analysis_id: 24,
+              config_hash: "c".repeat(64),
+              status: "completed",
+              finding_count: 0,
+              error_message: null,
+              created_at: "2026-11-15T00:00:00Z",
+              completed_at: "2026-11-15T00:00:01Z",
+              reused: false,
+            });
+        }),
+    );
+
+    render(<App />);
+    await screen.findByText("synthetic.pcap", { selector: "span" });
+    fireEvent.click(screen.getByRole("button", { name: /synthetic\.pcap/ }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Run detection" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Running detection…" }),
+    ).toBeDisabled();
+
+    await act(async () => finishRun?.());
+  });
 });
 
 function analysis(id: number): Analysis {
@@ -320,4 +531,48 @@ function flow(index: number): NetworkFlow {
 
 function flowPage(items: NetworkFlow[], total: number, offset = 0): FlowList {
   return { items, total, offset, limit: 50 };
+}
+
+function detectionSummary(analysisId: number): DetectionSummary {
+  return {
+    analysis_id: analysisId,
+    run_id: null,
+    status: "not_started",
+    finding_count: 0,
+    severity_counts: { low: 0, medium: 0, high: 0, critical: 0 },
+    rule_counts: [],
+    config_hash: null,
+    error_message: null,
+    created_at: null,
+    completed_at: null,
+  };
+}
+
+function finding(id: number): DetectionFinding {
+  return {
+    id,
+    run_id: 7,
+    analysis_id: 21,
+    rule_id: "PORT_SCAN",
+    rule_name: "Multi-port probing",
+    severity: "high",
+    source_ip: "192.0.2.10",
+    destination_ip: "198.51.100.20",
+    protocol_name: "TCP/UDP",
+    explanation:
+      "The source contacted 12 distinct destination ports on one target in this capture.",
+    evidence: { distinct_destination_port_count: 12, flow_count: 12 },
+    supporting_flow_count: 12,
+    supporting_flow_sample_truncated: false,
+    created_at: "2026-11-15T00:00:01Z",
+    supporting_flows: [],
+  };
+}
+
+function findingPage(
+  items: DetectionFinding[],
+  total: number,
+  offset = 0,
+): FindingList {
+  return { items, total, offset, limit: 25, run_id: items[0]?.run_id ?? null };
 }

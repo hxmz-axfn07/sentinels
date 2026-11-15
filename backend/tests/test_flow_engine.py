@@ -238,6 +238,12 @@ def test_aggregates_direction_lengths_timestamps_rates_and_tcp_flags() -> None:
     assert features["interarrival_stddev"] == Decimal("0.5")
     assert (features["syn_count"], features["ack_count"], features["fin_count"]) == (2, 2, 1)
     assert (features["rst_count"], features["psh_count"], features["urg_count"]) == (0, 0, 0)
+    assert (
+        features["forward_syn_only_count"],
+        features["backward_syn_only_count"],
+        features["forward_syn_ack_count"],
+        features["backward_syn_ack_count"],
+    ) == (1, 0, 0, 1)
     assert features["packets_per_second"] == Decimal("1")
     assert features["bytes_per_second"] == Decimal("200")
     assert all(value.is_finite() for value in features.values() if isinstance(value, Decimal))
@@ -292,6 +298,8 @@ def test_missing_timestamps_produce_null_timing_features_and_non_tcp_flags() -> 
     assert features["interarrival_mean"] is None
     assert features["packets_per_second"] is None
     assert features["syn_count"] is None
+    assert features["forward_syn_only_count"] is None
+    assert features["backward_syn_ack_count"] is None
 
 
 def test_empty_packet_collection_produces_no_flows() -> None:

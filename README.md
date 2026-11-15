@@ -1,6 +1,6 @@
 # SENTINEL
 
-SENTINEL is a defensive network intrusion detection system. The Day 3 milestone supports secure offline PCAP and PCAPNG ingestion, packet metadata extraction, and synchronous bidirectional flow generation. Intrusion detection is not implemented yet.
+SENTINEL is a defensive network intrusion detection system. The Day 4 milestone supports secure offline PCAP/PCAPNG ingestion, packet metadata extraction, synchronous bidirectional flow generation, and configurable explainable rule-based findings. Findings are traffic indicators, not proof of malicious activity.
 
 ## Requirements
 
@@ -71,3 +71,13 @@ After a packet analysis completes, the dashboard can generate flows synchronousl
 Flow statistics include packet and byte counts by direction, duration, packet-length and inter-arrival distributions, available TCP flag counts, and packet/byte rates. Rates are null for zero or unavailable duration. Missing timestamps and TCP flags remain unavailable in the corresponding features. The full key and feature definitions are in [docs/learn/flow-engine.md](docs/learn/flow-engine.md).
 
 Alembic revision `0003_bidirectional_flows` adds flow records, analysis generation status, and packet flow assignments. Downgrading it deletes generated flow rows and packet assignments; only downgrade when intentionally discarding Day 3 results. Flow aggregation is not detection and does not classify traffic.
+
+## Rule-based detection
+
+After flow generation, run the three current rules synchronously with `POST /api/v1/analyses/{analysis_id}/detections/run`. Retrieve the latest run summary at `GET /api/v1/analyses/{analysis_id}/detection-summary`, findings at `GET /api/v1/analyses/{analysis_id}/findings?offset=0&limit=50`, or a finding at `GET /api/v1/analyses/{analysis_id}/findings/{finding_id}`. Findings accept `severity`, `rule_id`, and `run_id` filters. Same-configuration reruns reuse the completed run; changed configuration creates a new run and preserves the previous run for retrieval by `run_id`.
+
+The rules identify multi-port probing, high capture-wide SYN-only packet volume, and distinct TCP flow tuples with observed SYN-only traffic. Default Low/Medium/High/Critical thresholds are respectively 5/10/25/50 distinct ports, 20/100/500/1000 SYN-only packets, and 10/25/50/100 TCP tuples with SYN-only traffic. These initial values are tunable starting points, not universal security limits. Rule enablement and thresholds can be set with the `DETECTION_CONFIG__...` variables documented in `.env.example`.
+
+SYN-only and SYN+ACK counts are derived directionally from persisted packet flags. Since flag timestamps are not retained per packet in a flow, SYN activity is measured across the entire analysis rather than an invented time window. Connection-attempt findings do not establish successful handshakes. Findings link up to 100 supporting flow samples while preserving the exact support count. See [rule-based detection](docs/learn/rule-based-detection.md) for definitions, thresholds, tuning, and false-positive considerations.
+
+Alembic revision `0004_rule_based_detection` adds directional handshake counts, detection run snapshots, findings, and supporting-flow links. Its downgrade removes findings and detection runs and drops those flow counts; do not downgrade if those results should be retained.

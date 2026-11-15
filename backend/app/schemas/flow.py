@@ -45,6 +45,10 @@ class FlowRead(BaseModel):
     rst_count: int | None
     psh_count: int | None
     urg_count: int | None
+    forward_syn_only_count: int | None
+    backward_syn_only_count: int | None
+    forward_syn_ack_count: int | None
+    backward_syn_ack_count: int | None
     packets_per_second: Decimal | None
     bytes_per_second: Decimal | None
     created_at: datetime

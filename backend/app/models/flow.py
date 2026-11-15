@@ -73,6 +73,10 @@ class NetworkFlow(Base):
     rst_count: Mapped[int | None] = mapped_column(BigInteger)
     psh_count: Mapped[int | None] = mapped_column(BigInteger)
     urg_count: Mapped[int | None] = mapped_column(BigInteger)
+    forward_syn_only_count: Mapped[int | None] = mapped_column(BigInteger)
+    backward_syn_only_count: Mapped[int | None] = mapped_column(BigInteger)
+    forward_syn_ack_count: Mapped[int | None] = mapped_column(BigInteger)
+    backward_syn_ack_count: Mapped[int | None] = mapped_column(BigInteger)
     packets_per_second: Mapped[Decimal | None] = mapped_column(Numeric(24, 9))
     bytes_per_second: Mapped[Decimal | None] = mapped_column(Numeric(24, 9))
     created_at: Mapped[datetime] = mapped_column(

@@ -234,12 +234,18 @@ class FlowAggregate:
     packet_lengths: RunningStatistics = field(default_factory=RunningStatistics)
     interarrival_times: RunningStatistics = field(default_factory=RunningStatistics)
     tcp_flags_observed: bool = False
+    forward_tcp_flags_observed: bool = False
+    backward_tcp_flags_observed: bool = False
     syn_count: int = 0
     ack_count: int = 0
     fin_count: int = 0
     rst_count: int = 0
     psh_count: int = 0
     urg_count: int = 0
+    forward_syn_only_count: int = 0
+    backward_syn_only_count: int = 0
+    forward_syn_ack_count: int = 0
+    backward_syn_ack_count: int = 0
 
     def add_packet(self, packet: PacketLike, forward: bool) -> None:
         self.total_packets += 1
@@ -268,12 +274,28 @@ class FlowAggregate:
         if self.key.protocol_name == "TCP" and packet.tcp_flags is not None:
             self.tcp_flags_observed = True
             flags = packet.tcp_flags
+            if forward:
+                self.forward_tcp_flags_observed = True
+            else:
+                self.backward_tcp_flags_observed = True
             self.fin_count += bool(flags & 0x01)
             self.syn_count += bool(flags & 0x02)
             self.rst_count += bool(flags & 0x04)
             self.psh_count += bool(flags & 0x08)
             self.ack_count += bool(flags & 0x10)
             self.urg_count += bool(flags & 0x20)
+            syn = bool(flags & 0x02)
+            ack = bool(flags & 0x10)
+            if syn and ack:
+                if forward:
+                    self.forward_syn_ack_count += 1
+                else:
+                    self.backward_syn_ack_count += 1
+            elif syn:
+                if forward:
+                    self.forward_syn_only_count += 1
+                else:
+                    self.backward_syn_only_count += 1
 
     def add_timestamp_ordered(self, timestamp: Decimal) -> None:
         previous = self.last_interarrival_timestamp
@@ -331,6 +353,18 @@ class FlowAggregate:
             "rst_count": self.rst_count if flags_available else None,
             "psh_count": self.psh_count if flags_available else None,
             "urg_count": self.urg_count if flags_available else None,
+            "forward_syn_only_count": self.forward_syn_only_count
+            if self.forward_tcp_flags_observed
+            else None,
+            "backward_syn_only_count": self.backward_syn_only_count
+            if self.backward_tcp_flags_observed
+            else None,
+            "forward_syn_ack_count": self.forward_syn_ack_count
+            if self.forward_tcp_flags_observed
+            else None,
+            "backward_syn_ack_count": self.backward_syn_ack_count
+            if self.backward_tcp_flags_observed
+            else None,
             "packets_per_second": Decimal(self.total_packets) / duration
             if rate_is_defined
             else None,

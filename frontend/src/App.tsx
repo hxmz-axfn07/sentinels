@@ -10,10 +10,19 @@ import {
   type UploadLimits,
 } from "./api/analyses";
 import { getHealth } from "./api/health";
+import {
+  getDetectionSummary,
+  getFindings,
+  runDetection,
+  type DetectionSeverity,
+  type DetectionSummary,
+  type FindingList,
+} from "./api/detections";
 import { generateFlows, getFlows, type FlowList } from "./api/flows";
 
 const PACKET_PAGE_SIZE = 50;
 const FLOW_PAGE_SIZE = 50;
+const FINDING_PAGE_SIZE = 25;
 type ServiceStatus = "checking" | "online" | "offline";
 
 export default function App() {
@@ -26,6 +35,9 @@ export default function App() {
   );
   const [packets, setPackets] = useState<PacketList | null>(null);
   const [flows, setFlows] = useState<FlowList | null>(null);
+  const [detectionSummary, setDetectionSummary] =
+    useState<DetectionSummary | null>(null);
+  const [findings, setFindings] = useState<FindingList | null>(null);
   const [offset, setOffset] = useState(0);
   const [flowOffset, setFlowOffset] = useState(0);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -36,6 +48,14 @@ export default function App() {
   const [flowLoading, setFlowLoading] = useState(false);
   const [flowGenerating, setFlowGenerating] = useState(false);
   const [flowError, setFlowError] = useState<string | null>(null);
+  const [findingOffset, setFindingOffset] = useState(0);
+  const [findingSeverity, setFindingSeverity] = useState<
+    DetectionSeverity | ""
+  >("");
+  const [findingRule, setFindingRule] = useState("");
+  const [findingLoading, setFindingLoading] = useState(false);
+  const [detectionRunning, setDetectionRunning] = useState(false);
+  const [detectionError, setDetectionError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -66,6 +86,18 @@ export default function App() {
         getAnalysis(id),
         getPackets(id, pageOffset, PACKET_PAGE_SIZE),
       ]);
+      const summary = await getDetectionSummary(id);
+      let findingPage: FindingList | null = null;
+      if (summary.status === "completed") {
+        setFindingLoading(true);
+        findingPage = await getFindings(
+          id,
+          0,
+          FINDING_PAGE_SIZE,
+          findingSeverity || undefined,
+          findingRule || undefined,
+        );
+      }
       let flowPage: FlowList | null = null;
       if (analysis.flow_generation_status === "completed") {
         setFlowLoading(true);
@@ -77,11 +109,16 @@ export default function App() {
       setFlows(flowPage);
       setFlowOffset(0);
       setFlowError(null);
+      setDetectionSummary(summary);
+      setFindings(findingPage);
+      setFindingOffset(0);
+      setDetectionError(summary.error_message);
     } catch (error) {
       setPageError(errorMessage(error));
     } finally {
       setPacketLoading(false);
       setFlowLoading(false);
+      setFindingLoading(false);
     }
   }
 
@@ -107,8 +144,12 @@ export default function App() {
       setOffset(0);
       setFlows(null);
       setFlowOffset(0);
+      setDetectionSummary(null);
+      setFindings(null);
+      setFindingOffset(0);
       const firstPage = await getPackets(result.id, 0, PACKET_PAGE_SIZE);
       setPackets(firstPage);
+      setDetectionSummary(await getDetectionSummary(result.id));
       if (result.status === "failed") {
         setUploadError(
           result.error_message ?? "The capture could not be processed.",
@@ -162,6 +203,56 @@ export default function App() {
       setFlowError(errorMessage(error));
     } finally {
       setFlowLoading(false);
+    }
+  }
+
+  async function handleRunDetection() {
+    if (!selectedAnalysis) return;
+    setDetectionRunning(true);
+    setDetectionError(null);
+    try {
+      await runDetection(selectedAnalysis.id);
+      const summary = await getDetectionSummary(selectedAnalysis.id);
+      const page = await getFindings(
+        selectedAnalysis.id,
+        0,
+        FINDING_PAGE_SIZE,
+        findingSeverity || undefined,
+        findingRule || undefined,
+      );
+      setDetectionSummary(summary);
+      setFindings(page);
+      setFindingOffset(0);
+    } catch (error) {
+      setDetectionError(errorMessage(error));
+    } finally {
+      setDetectionRunning(false);
+    }
+  }
+
+  async function loadFindingPage(
+    pageOffset: number,
+    severity = findingSeverity,
+    rule = findingRule,
+  ) {
+    if (!selectedAnalysis || detectionSummary?.status !== "completed") return;
+    setFindingLoading(true);
+    setDetectionError(null);
+    try {
+      setFindings(
+        await getFindings(
+          selectedAnalysis.id,
+          pageOffset,
+          FINDING_PAGE_SIZE,
+          severity || undefined,
+          rule || undefined,
+        ),
+      );
+      setFindingOffset(pageOffset);
+    } catch (error) {
+      setDetectionError(errorMessage(error));
+    } finally {
+      setFindingLoading(false);
     }
   }
 
@@ -611,6 +702,221 @@ export default function App() {
           </section>
         )}
 
+        {selectedAnalysis && (
+          <section className="mt-6 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base font-semibold">Rule-based findings</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  {detectionSummary?.finding_count ?? 0} findings ·{" "}
+                  {detectionSummary?.status ?? "not_started"}
+                </p>
+              </div>
+              {selectedAnalysis.status === "completed" &&
+                selectedAnalysis.flow_generation_status === "completed" && (
+                  <button
+                    type="button"
+                    onClick={() => void handleRunDetection()}
+                    disabled={
+                      detectionRunning ||
+                      detectionSummary?.status === "processing"
+                    }
+                    className="rounded-lg border border-signal/40 bg-signal/10 px-4 py-2 text-sm font-semibold text-signal disabled:opacity-50"
+                  >
+                    {detectionRunning
+                      ? "Running detection…"
+                      : detectionSummary?.status === "completed"
+                        ? "Re-run detection"
+                        : detectionSummary?.status === "failed"
+                          ? "Retry detection"
+                          : "Run detection"}
+                  </button>
+                )}
+            </div>
+            {detectionSummary?.error_message && (
+              <p className="mt-3 text-sm text-rose-300" role="alert">
+                {detectionSummary.error_message}
+              </p>
+            )}
+            {detectionError && (
+              <p className="mt-3 text-sm text-rose-300" role="alert">
+                {detectionError}
+              </p>
+            )}
+            <p className="mt-3 text-xs text-slate-500">
+              Severity reflects configured thresholds and observed evidence; it
+              does not confirm malicious activity.
+            </p>
+            {detectionSummary?.status === "completed" && (
+              <>
+                <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                  {(["low", "medium", "high", "critical"] as const).map(
+                    (severity) => (
+                      <span
+                        key={severity}
+                        className={`rounded-full border px-2.5 py-1 ${severityClass(severity)}`}
+                      >
+                        {severity}: {detectionSummary.severity_counts[severity]}
+                      </span>
+                    ),
+                  )}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-4">
+                  <label className="text-xs text-slate-400">
+                    Severity
+                    <select
+                      aria-label="Filter findings by severity"
+                      value={findingSeverity}
+                      onChange={(event) => {
+                        const value = event.currentTarget.value as
+                          DetectionSeverity | "";
+                        setFindingSeverity(value);
+                        void loadFindingPage(0, value, findingRule);
+                      }}
+                      className="ml-2 rounded-md border border-line bg-ink px-2 py-1.5 text-slate-200"
+                    >
+                      <option value="">All severities</option>
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="critical">Critical</option>
+                    </select>
+                  </label>
+                  <label className="text-xs text-slate-400">
+                    Rule
+                    <select
+                      aria-label="Filter findings by rule"
+                      value={findingRule}
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+                        setFindingRule(value);
+                        void loadFindingPage(0, findingSeverity, value);
+                      }}
+                      className="ml-2 rounded-md border border-line bg-ink px-2 py-1.5 text-slate-200"
+                    >
+                      <option value="">All rules</option>
+                      <option value="PORT_SCAN">Multi-port probing</option>
+                      <option value="SYN_FLOOD_LIKE">
+                        High SYN-only volume
+                      </option>
+                      <option value="EXCESSIVE_CONNECTION_ATTEMPTS">
+                        Connection attempts
+                      </option>
+                    </select>
+                  </label>
+                </div>
+              </>
+            )}
+            {findingLoading || detectionRunning ? (
+              <p
+                className="py-8 text-center text-sm text-slate-400"
+                role="status"
+              >
+                {detectionRunning ? "Evaluating flows…" : "Loading findings…"}
+              </p>
+            ) : detectionSummary?.status === "processing" ? (
+              <p
+                className="py-8 text-center text-sm text-slate-400"
+                role="status"
+              >
+                Detection is running for this analysis.
+              </p>
+            ) : detectionSummary?.status !== "completed" ? (
+              <p className="py-8 text-center text-sm text-slate-500">
+                Run detection after flow generation has completed.
+              </p>
+            ) : findings?.items.length ? (
+              <>
+                <div className="mt-4 space-y-3">
+                  {findings.items.map((finding) => (
+                    <article
+                      key={finding.id}
+                      className="rounded-xl border border-line bg-ink/60 p-4"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase ${severityClass(finding.severity)}`}
+                        >
+                          {finding.severity}
+                        </span>
+                        <h3 className="text-sm font-semibold">
+                          {finding.rule_name}
+                        </h3>
+                        <span className="font-mono text-[10px] text-slate-500">
+                          {finding.rule_id}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">
+                        {finding.explanation}
+                      </p>
+                      <p className="mt-2 font-mono text-xs text-slate-400">
+                        {finding.source_ip ?? "—"} →{" "}
+                        {finding.destination_ip ?? "—"}
+                        {finding.protocol_name
+                          ? ` · ${finding.protocol_name}`
+                          : ""}
+                      </p>
+                      <p className="mt-2 text-xs text-slate-500">
+                        {finding.supporting_flow_count} supporting flow(s)
+                        {finding.supporting_flow_sample_truncated
+                          ? " · showing a sample of 100"
+                          : ""}
+                      </p>
+                      <details className="mt-3 text-xs text-slate-400">
+                        <summary className="cursor-pointer">Evidence</summary>
+                        <pre className="mt-2 overflow-x-auto rounded-lg bg-black/20 p-3 font-mono text-[11px] leading-5">
+                          {JSON.stringify(finding.evidence, null, 2)}
+                        </pre>
+                      </details>
+                    </article>
+                  ))}
+                </div>
+                <div className="mt-4 flex items-center justify-between">
+                  <span className="text-xs text-slate-500">
+                    {findings.total === 0 ? 0 : findingOffset + 1}–
+                    {Math.min(
+                      findingOffset + findings.items.length,
+                      findings.total,
+                    )}{" "}
+                    of {findings.total}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={findingOffset === 0 || findingLoading}
+                      onClick={() =>
+                        void loadFindingPage(
+                          Math.max(0, findingOffset - FINDING_PAGE_SIZE),
+                        )
+                      }
+                      className="rounded-md border border-line px-3 py-2 text-xs text-slate-300 disabled:opacity-40"
+                    >
+                      Previous findings
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        findingLoading ||
+                        findingOffset + FINDING_PAGE_SIZE >= findings.total
+                      }
+                      onClick={() =>
+                        void loadFindingPage(findingOffset + FINDING_PAGE_SIZE)
+                      }
+                      className="rounded-md border border-line px-3 py-2 text-xs text-slate-300 disabled:opacity-40"
+                    >
+                      Next findings
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="py-8 text-center text-sm text-slate-500">
+                No findings matched the selected rules and thresholds.
+              </p>
+            )}
+          </section>
+        )}
+
         <footer className="mt-auto border-t border-line pt-4 text-xs text-slate-600">
           SENTINEL · Authorized network monitoring
         </footer>
@@ -639,6 +945,15 @@ function endpoint(address: string | null, port: number | null): string {
   if (!address) return "—";
   if (port === null) return address;
   return address.includes(":") ? `[${address}]:${port}` : `${address}:${port}`;
+}
+
+function severityClass(severity: DetectionSeverity): string {
+  return {
+    low: "border-sky-400/20 bg-sky-400/10 text-sky-200",
+    medium: "border-amber-400/20 bg-amber-400/10 text-amber-200",
+    high: "border-orange-400/20 bg-orange-400/10 text-orange-200",
+    critical: "border-rose-400/20 bg-rose-400/10 text-rose-200",
+  }[severity];
 }
 
 function formatBytes(bytes: number): string {

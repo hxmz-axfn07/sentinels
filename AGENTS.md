@@ -1080,9 +1080,9 @@ Prioritize the minimum complete application that demonstrates the full detection
 
 ---
 
-## 18. Current Execution State — Day 3 Complete
+## 18. Current Execution State — Day 4 Complete
 
-**Current milestone:** Day 3 — bidirectional flow generation from persisted packet metadata.
+**Current milestone:** Day 4 — configurable rule-based detection over persisted bidirectional flows.
 
 The user is currently developing on Arch Linux (x86_64). The project must remain compatible with macOS ARM64.
 
@@ -1098,7 +1098,7 @@ Keep the project compatible with macOS Apple Silicon (ARM64). The Git repository
 
 Use backend port 8001, frontend port 5174, and host-accessible MySQL port 3307. Check availability before starting services. Existing services use ports 5173, 4000, 8000, 9443, and 11434; do not stop or alter unrelated services or containers.
 
-### Implemented Day 2 and Day 3 scope
+### Implemented Day 2 through Day 4 scope
 
 - Secure chunked upload with configurable size limits and generated private storage names.
 - Content-based structural validation for classic PCAP 2.4 variants and PCAPNG 1.0 sections.
@@ -1111,16 +1111,20 @@ Use backend port 8001, frontend port 5174, and host-accessible MySQL port 3307. 
 - Synchronous, retryable flow-generation API and paginated flow retrieval.
 - Alembic revision `0003_bidirectional_flows`, preserving revisions 0001 and 0002.
 - Flow generation UI and technical/report documentation.
+- Three configurable rules for multi-port probing, capture-wide SYN-only packet volume, and TCP flow tuples with SYN-only traffic.
+- Directional SYN-only and SYN+ACK flow counts, additively backfilled from stored packet flags by revision `0004_rule_based_detection`.
+- Versioned, idempotent detection runs with validated config snapshots, structured findings, severity thresholds, and bounded supporting-flow samples.
+- Paginated, filtered finding/summary APIs and the findings UI.
 
-The execution and verification report must be updated with actual checks before committing. Downgrading revision 0002 removes Day 2 packet/capture data; downgrading revision 0003 removes generated flows and packet assignments. Do not downgrade a populated database unless that data is intentionally discarded. Keep private captures out of Git.
+The development database is at revision `0004_rule_based_detection`; no analyses, flows, detection runs, or findings remain in it after synthetic API integration cleanup. Downgrading revision 0002 removes Day 2 packet/capture data, revision 0003 removes generated flows and packet assignments, and revision 0004 removes directional flow counts and detection results. These operations are data-destructive; do not downgrade if those records should be retained. Keep private captures out of Git.
 
 ### Strict scope boundary
 
-Day 4 and later work is not authorized until the user explicitly approves it. Do not implement detection rules, Isolation Forest, model training/inference, hybrid detection, risk scoring, alert generation, or live capture as part of Day 3.
+Day 5 and later work is not authorized until the user explicitly approves it. Do not implement Isolation Forest or other ML detection, model training/inference, hybrid scoring, alert correlation, incident management, or live capture as part of Day 4.
 
 ### Completion report
 
-Report actual files changed, flow-key and statistics behavior, migration status, API/frontend capability, executed test/lint/build/migration/startup checks, report and DOCX export status, branch/commit/push status, remaining limitations, and the exact Day 4 starting point. Never claim unexecuted checks.
+Report actual files changed, rule definitions and thresholds, severity and evidence behavior, migration status, API/frontend capability, executed test/lint/build/migration/API integration checks, report and DOCX export status, branch/commit/push status, false-positive limitations, and the exact Day 5 starting point. Never claim unexecuted checks.
 
 ---
 
@@ -1163,4 +1167,4 @@ Do not fabricate functionality, metrics, research, or test results.
 
 Do not silently expand the scope.
 
-**Current authorization: Day 3 only. Wait for explicit user approval before starting Day 4.**
+**Current authorization: Day 4 only. Wait for explicit user approval before starting Day 5.**

@@ -1,7 +1,9 @@
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.services.detection.config import DetectionConfig
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
@@ -11,6 +13,7 @@ class Settings(BaseSettings):
     frontend_origin: str = "http://localhost:5174"
     upload_storage_dir: Path = PROJECT_ROOT / "storage" / "pcaps"
     max_upload_size_bytes: int = 104_857_600
+    detection_config: DetectionConfig = Field(default_factory=DetectionConfig)
 
     @field_validator("upload_storage_dir", mode="before")
     @classmethod
@@ -28,6 +31,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
+        env_nested_delimiter="__",
+        nested_model_default_partial_update=True,
         extra="ignore",
     )
 
