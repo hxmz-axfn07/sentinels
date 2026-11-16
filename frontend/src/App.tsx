@@ -21,6 +21,7 @@ import {
 import { generateFlows, getFlows, type FlowList } from "./api/flows";
 import MlAnalysisPanel from "./components/MlAnalysisPanel";
 import HybridAnalysisPanel from "./components/HybridAnalysisPanel";
+import PipelinePanel from "./components/PipelinePanel";
 
 const PACKET_PAGE_SIZE = 50;
 const FLOW_PAGE_SIZE = 50;
@@ -430,7 +431,10 @@ export default function App() {
         )}
 
         {selectedAnalysis && (
-          <section className="mt-6 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6">
+          <section
+            id="analysis-packets"
+            className="mt-6 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6"
+          >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-widest text-slate-500">
@@ -927,6 +931,10 @@ export default function App() {
 
         <MlAnalysisPanel analysis={selectedAnalysis} analyses={analyses} />
         <HybridAnalysisPanel
+          analysis={selectedAnalysis}
+          detectionSummary={detectionSummary}
+        />
+        <PipelinePanel
           analysis={selectedAnalysis}
           detectionSummary={detectionSummary}
         />

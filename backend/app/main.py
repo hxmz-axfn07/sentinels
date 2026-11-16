@@ -7,6 +7,7 @@ from app.api.flows import router as flows_router
 from app.api.health import router as health_router
 from app.api.hybrid import router as hybrid_router
 from app.api.ml import router as ml_router
+from app.api.pipeline import router as pipeline_router
 from app.api.upload_limits import UploadRequestSizeLimitMiddleware
 from app.core.config import settings
 
@@ -24,4 +25,5 @@ app.include_router(analyses_router)
 app.include_router(flows_router)
 app.include_router(detections_router)
 app.include_router(hybrid_router)
+app.include_router(pipeline_router)
 app.include_router(ml_router)

@@ -43,6 +43,7 @@ import {
   getFindings,
   runDetection,
 } from "./api/detections";
+import { getPipelineSummary, startPipeline } from "./api/pipeline";
 import App from "./App";
 
 vi.mock("./api/analyses", () => ({
@@ -75,6 +76,12 @@ vi.mock("./api/ml", () => ({
   getModels: vi.fn(),
   runInference: vi.fn(),
   trainModel: vi.fn(),
+}));
+vi.mock("./api/pipeline", () => ({
+  getPipelineSummary: vi.fn(),
+  getPipelineRuns: vi.fn(),
+  getPipelineRun: vi.fn(),
+  startPipeline: vi.fn(),
 }));
 
 afterEach(cleanup);
@@ -157,6 +164,14 @@ beforeEach(() => {
   });
   vi.mocked(getMlSummary).mockImplementation(async (analysisId, modelId) =>
     mlSummary(analysisId, modelId),
+  );
+  vi.mocked(getPipelineSummary).mockImplementation(async (analysisId) => ({
+    analysis_id: analysisId,
+    status: "not_started",
+    latest_run: null,
+  }));
+  vi.mocked(startPipeline).mockRejectedValue(
+    new Error("Pipeline not configured"),
   );
   vi.mocked(getAnomalyResults).mockResolvedValue(anomalyPage([], 0));
   vi.mocked(trainModel).mockResolvedValue(anomalyModel(1));

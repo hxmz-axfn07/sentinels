@@ -78,7 +78,7 @@ def test_migration_0006_preserves_day4_and_day5_sources(tmp_path: Path, monkeypa
             },
         )
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "0006_hybrid_assessments")
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT COUNT(*) FROM analyses")) == 1
         assert connection.scalar(text("SELECT COUNT(*) FROM detection_findings")) == 1

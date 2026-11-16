@@ -4,6 +4,7 @@ from app.models.detection import DetectionFinding, DetectionRun
 from app.models.flow import NetworkFlow
 from app.models.hybrid import HybridAssessment, HybridEvidence, HybridRiskGroup
 from app.models.packet import PacketRecord
+from app.models.pipeline import PipelineRun, PipelineStageExecution
 
 __all__ = [
     "Analysis",
@@ -16,4 +17,6 @@ __all__ = [
     "HybridRiskGroup",
     "NetworkFlow",
     "PacketRecord",
+    "PipelineRun",
+    "PipelineStageExecution",
 ]
