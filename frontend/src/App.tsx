@@ -22,6 +22,7 @@ import { generateFlows, getFlows, type FlowList } from "./api/flows";
 import MlAnalysisPanel from "./components/MlAnalysisPanel";
 import HybridAnalysisPanel from "./components/HybridAnalysisPanel";
 import PipelinePanel from "./components/PipelinePanel";
+import MonitoringAnalytics from "./components/MonitoringAnalytics";
 import {
   getAnalysisHistory,
   getDashboardOverview,
@@ -376,6 +377,9 @@ export default function App() {
               ["ML", "ml-detection"],
               ["Hybrid risk", "hybrid-risk"],
               ["Pipeline", "analysis-pipeline"],
+              ["Traffic analytics", "traffic-analytics"],
+              ["Security events", "security-events"],
+              ["Compare", "analysis-comparison"],
             ].map(([label, target]) => (
               <li key={target}>
                 <a
@@ -1361,6 +1365,13 @@ export default function App() {
             onResultsChanged={refreshOverview}
           />
         </div>
+        <MonitoringAnalytics
+          analyses={history}
+          selectedAnalysis={
+            history.find((item) => item.id === selectedAnalysis?.id) ?? null
+          }
+          onOpenAnalysis={(id) => void selectAnalysis(id)}
+        />
 
         <footer className="mt-auto border-t border-line pt-4 text-xs text-slate-600">
           SENTINEL · Authorized network monitoring

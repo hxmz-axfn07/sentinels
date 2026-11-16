@@ -19,6 +19,14 @@ import type { HybridSummary } from "./api/hybrid";
 import type { DashboardOverview, OverviewAnalysis } from "./api/dashboard";
 import { getAnalysisHistory, getDashboardOverview } from "./api/dashboard";
 import {
+  compareAnalyses,
+  getSecurityEvent,
+  getSecurityEvents,
+  getTrafficAnalytics,
+  type SecurityEvent,
+  type TrafficAnalytics,
+} from "./api/analytics";
+import {
   getAnalyses,
   getAnalysis,
   getPackets,
@@ -61,6 +69,12 @@ vi.mock("./api/dashboard", () => ({
   getAnalysisHistory: vi.fn(),
   getDashboardOverview: vi.fn(),
 }));
+vi.mock("./api/analytics", () => ({
+  compareAnalyses: vi.fn(),
+  getSecurityEvent: vi.fn(),
+  getSecurityEvents: vi.fn(),
+  getTrafficAnalytics: vi.fn(),
+}));
 vi.mock("./api/hybrid", () => ({
   getHybridEvidence: vi.fn(),
   getHybridGroups: vi.fn(),
@@ -95,6 +109,22 @@ afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getHealth).mockResolvedValue({ status: "ok" });
+  vi.mocked(getTrafficAnalytics).mockResolvedValue(syntheticTrafficAnalytics());
+  vi.mocked(getSecurityEvents).mockResolvedValue({
+    items: [],
+    total: 0,
+    offset: 0,
+    limit: 20,
+  });
+  vi.mocked(compareAnalyses).mockResolvedValue({
+    items: [],
+    metric_limitations: [],
+  });
+  vi.mocked(getSecurityEvent).mockResolvedValue({
+    event: syntheticSecurityEvent(),
+    evidence: {},
+    related_flow_ids: [],
+  });
   vi.mocked(getDashboardOverview).mockResolvedValue(dashboardOverview());
   vi.mocked(getAnalysisHistory).mockResolvedValue({
     items: [],
@@ -1124,5 +1154,57 @@ function dashboardOverview(
     recent_analyses: [],
     recent_high_priority_findings: [],
     ...overrides,
+  };
+}
+
+function syntheticTrafficAnalytics(): TrafficAnalytics {
+  return {
+    analysis_id: 1,
+    original_filename: "SYNTHETIC-app-test.pcap",
+    packet_count: 0,
+    total_bytes: 0,
+    flow_count: null,
+    flow_generation_status: "not_started",
+    first_packet_timestamp: null,
+    last_packet_timestamp: null,
+    duration_seconds: null,
+    timestamped_packet_count: 0,
+    unavailable_timestamp_packet_count: 0,
+    packets_per_second: null,
+    bytes_per_second: null,
+    forward_packets: null,
+    backward_packets: null,
+    forward_bytes: null,
+    backward_bytes: null,
+    protocols: [],
+    packet_length_distribution: [],
+    timeline_bucket_seconds: null,
+    timeline: [],
+    top_source_endpoints: [],
+    top_destination_endpoints: [],
+    top_flows_by_bytes: [],
+    top_flows_by_packets: [],
+  };
+}
+
+function syntheticSecurityEvent(): SecurityEvent {
+  return {
+    event_id: "rule_finding:1",
+    event_type: "rule_finding",
+    analysis_id: 1,
+    original_filename: "SYNTHETIC-app-test.pcap",
+    recorded_at: "2026-11-16T00:00:00Z",
+    timestamp_label: "finding recorded",
+    severity: "high",
+    risk_score: null,
+    source_ip: "192.0.2.1",
+    destination_ip: "198.51.100.2",
+    protocol: "TCP",
+    explanation: "Synthetic event fixture.",
+    rule_id: "PORT_SCAN",
+    model_id: null,
+    model_version: null,
+    flow_id: null,
+    related_reference: "rule_finding:1",
   };
 }
