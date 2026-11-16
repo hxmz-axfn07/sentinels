@@ -7,6 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import type { Analysis, Packet, PacketList } from "./api/analyses";
 import type {
   DetectionFinding,
@@ -54,7 +55,7 @@ import {
   runDetection,
 } from "./api/detections";
 import { getPipelineSummary, startPipeline } from "./api/pipeline";
-import App from "./App";
+import App, { SentinelApplication } from "./App";
 
 vi.mock("./api/analyses", () => ({
   getAnalyses: vi.fn(),
@@ -241,6 +242,81 @@ beforeEach(() => {
 });
 
 describe("SENTINEL PCAP analysis", () => {
+  it("updates routes, active navigation, and browser history", async () => {
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <SentinelApplication />
+        <HistoryControls />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("link", { name: "Upload" }));
+    expect(
+      await screen.findByRole("heading", { name: "PCAP ingestion" }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("current-path")).toHaveTextContent("/upload");
+    expect(screen.getByRole("link", { name: "Upload" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+
+    fireEvent.click(screen.getByRole("link", { name: "Analyses" }));
+    expect(screen.getByTestId("current-path")).toHaveTextContent("/analyses");
+    fireEvent.click(screen.getByRole("button", { name: "Browser back" }));
+    expect(await screen.findByTestId("current-path")).toHaveTextContent(
+      "/upload",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Browser forward" }));
+    expect(await screen.findByTestId("current-path")).toHaveTextContent(
+      "/analyses",
+    );
+  });
+
+  it("loads and refreshes a nested analysis URL directly", async () => {
+    const first = renderAppAt("/analyses/5/packets");
+    expect(await screen.findByText("Analysis #5")).toBeInTheDocument();
+    expect(getAnalysis).toHaveBeenCalledWith(5);
+    first.unmount();
+    vi.mocked(getAnalysis).mockClear();
+
+    renderAppAt("/analyses/5/packets");
+    expect(await screen.findByText("Analysis #5")).toBeInTheDocument();
+    expect(getAnalysis).toHaveBeenCalledWith(5);
+    expect(
+      screen.getByRole("navigation", { name: "Analysis 5 navigation" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "Breadcrumb" }),
+    ).toHaveTextContent("#5 · synthetic.pcap");
+  });
+
+  it("shows clear invalid analysis, invalid event, and unknown route states", async () => {
+    renderAppAt("/analyses/0/flows");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "positive integer",
+    );
+    expect(getAnalysis).not.toHaveBeenCalled();
+    cleanup();
+
+    vi.mocked(getSecurityEvent).mockRejectedValueOnce(
+      new Error("Security event not found."),
+    );
+    renderAppAt("/events/not-a-valid-event");
+    expect(
+      await screen.findByText("Security event not found."),
+    ).toBeInTheDocument();
+    cleanup();
+
+    renderAppAt("/not-a-sentinel-page");
+    expect(
+      screen.getByRole("heading", { name: "Page not found" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: "Return to overview" }));
+    expect(
+      await screen.findByRole("heading", { name: "Security overview" }),
+    ).toBeInTheDocument();
+  });
+
   it("renders persisted overview counts, coverage and protocol distribution", async () => {
     vi.mocked(getDashboardOverview).mockResolvedValue(
       dashboardOverview({
@@ -306,9 +382,13 @@ describe("SENTINEL PCAP analysis", () => {
     expect(screen.getByText(/risk 62\.00 \(high\)/)).toBeInTheDocument();
     expect(getDashboardOverview).toHaveBeenCalledOnce();
     fireEvent.click(
-      screen.getByRole("button", { name: /synthetic-overview\.pcap/ }),
+      screen.getByRole("link", { name: /synthetic-overview\.pcap/ }),
     );
-    expect(await screen.findByText("Analysis #90")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", {
+        name: "synthetic.pcap",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("shows overview load failures and paginates older analysis history", async () => {
@@ -328,11 +408,12 @@ describe("SENTINEL PCAP analysis", () => {
         offset: 25,
         limit: 25,
       });
-    render(<App />);
+    renderAppAt("/");
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Overview service unavailable.",
     );
+    fireEvent.click(screen.getByRole("link", { name: "Analyses" }));
     fireEvent.click(
       await screen.findByRole("button", { name: "Next history" }),
     );
@@ -345,11 +426,12 @@ describe("SENTINEL PCAP analysis", () => {
   });
 
   it("shows the API state and an honest empty state", async () => {
-    render(<App />);
+    renderAppAt("/");
 
     expect(
       await screen.findByText("API and database ready"),
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: "Analyses" }));
     expect(
       await screen.findByText("No captures have been analyzed yet."),
     ).toBeInTheDocument();
@@ -365,9 +447,7 @@ describe("SENTINEL PCAP analysis", () => {
     });
     const result = analysis(4);
     vi.mocked(getPackets).mockResolvedValue(packetPage([packet(1)], 1));
-    render(<App />);
-    await screen.findByText("No captures have been analyzed yet.");
-
+    renderAppAt("/upload");
     fireEvent.change(screen.getByLabelText("Capture file"), {
       target: { files: [new File(["synthetic capture"], "synthetic.pcap")] },
     });
@@ -387,7 +467,7 @@ describe("SENTINEL PCAP analysis", () => {
 
   it("rejects a file over the server-provided size limit before upload", async () => {
     vi.mocked(getUploadLimits).mockResolvedValue({ max_upload_size_bytes: 4 });
-    render(<App />);
+    renderAppAt("/upload");
     await screen.findByText("Maximum size: 4 B");
 
     fireEvent.change(screen.getByLabelText("Capture file"), {
@@ -405,8 +485,7 @@ describe("SENTINEL PCAP analysis", () => {
     vi.mocked(uploadAnalysis).mockRejectedValue(
       new Error("The file is not a supported capture."),
     );
-    render(<App />);
-    await screen.findByText("No captures have been analyzed yet.");
+    renderAppAt("/upload");
     fireEvent.change(screen.getByLabelText("Capture file"), {
       target: { files: [new File(["bad"], "bad.pcap")] },
     });
@@ -433,9 +512,7 @@ describe("SENTINEL PCAP analysis", () => {
           )
         : packetPage([packet(51)], 51, offset),
     );
-    render(<App />);
-    await screen.findByText("synthetic.pcap", { selector: "span" });
-    fireEvent.click(screen.getByRole("button", { name: /synthetic\.pcap/ }));
+    renderAppAt("/analyses/8/packets");
     expect(await screen.findByText("192.0.2.1:1001")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
@@ -461,9 +538,7 @@ describe("SENTINEL PCAP analysis", () => {
       flows_generated_at: "2026-11-15T00:00:00Z",
     });
     vi.mocked(getFlows).mockResolvedValue(flowPage([flow(1)], 1));
-    render(<App />);
-    await screen.findByText("synthetic.pcap", { selector: "span" });
-    fireEvent.click(screen.getByRole("button", { name: /synthetic\.pcap/ }));
+    renderAppAt("/analyses/12/flows");
     await screen.findByText("Analysis #12");
     fireEvent.click(screen.getByRole("button", { name: "Generate flows" }));
 
@@ -496,9 +571,7 @@ describe("SENTINEL PCAP analysis", () => {
         ),
       )
       .mockResolvedValueOnce(flowPage([flow(51)], 51, 50));
-    render(<App />);
-    await screen.findByText("synthetic.pcap", { selector: "span" });
-    fireEvent.click(screen.getByRole("button", { name: /synthetic\.pcap/ }));
+    renderAppAt("/analyses/13/flows");
     await waitFor(() =>
       expect(screen.getAllByText("10.0.0.1:51500")).toHaveLength(50),
     );
@@ -518,9 +591,7 @@ describe("SENTINEL PCAP analysis", () => {
     vi.mocked(generateFlows).mockRejectedValue(
       new Error("Flow generation failed."),
     );
-    render(<App />);
-    await screen.findByText("synthetic.pcap", { selector: "span" });
-    fireEvent.click(screen.getByRole("button", { name: /synthetic\.pcap/ }));
+    renderAppAt("/analyses/14/flows");
     await screen.findByText("Analysis #14");
     fireEvent.click(screen.getByRole("button", { name: "Generate flows" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -563,9 +634,7 @@ describe("SENTINEL PCAP analysis", () => {
     });
     vi.mocked(getFindings).mockResolvedValue(findingPage([finding(21)], 1));
 
-    render(<App />);
-    await screen.findByText("synthetic.pcap", { selector: "span" });
-    fireEvent.click(screen.getByRole("button", { name: /synthetic\.pcap/ }));
+    renderAppAt("/analyses/21/rules");
     await screen.findByText("Run detection");
     await waitFor(() => expect(getDetectionSummary).toHaveBeenCalledWith(21));
     fireEvent.click(screen.getByRole("button", { name: "Run detection" }));
@@ -609,9 +678,7 @@ describe("SENTINEL PCAP analysis", () => {
       .mockResolvedValueOnce(findingPage([finding(26)], 26, 25))
       .mockResolvedValueOnce(findingPage([finding(26)], 1));
 
-    render(<App />);
-    await screen.findByText("synthetic.pcap", { selector: "span" });
-    fireEvent.click(screen.getByRole("button", { name: /synthetic\.pcap/ }));
+    renderAppAt("/analyses/22/rules");
     expect(await screen.findByText("1–25 of 26")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Next findings" }));
     await waitFor(() =>
@@ -653,9 +720,7 @@ describe("SENTINEL PCAP analysis", () => {
     vi.mocked(runDetection).mockRejectedValue(
       new Error("Detection did not complete."),
     );
-    render(<App />);
-    await screen.findByText("synthetic.pcap", { selector: "span" });
-    fireEvent.click(screen.getByRole("button", { name: /synthetic\.pcap/ }));
+    renderAppAt("/analyses/23/rules");
     await screen.findByText("Run detection");
     fireEvent.click(screen.getByRole("button", { name: "Run detection" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -698,9 +763,7 @@ describe("SENTINEL PCAP analysis", () => {
         }),
     );
 
-    render(<App />);
-    await screen.findByText("synthetic.pcap", { selector: "span" });
-    fireEvent.click(screen.getByRole("button", { name: /synthetic\.pcap/ }));
+    renderAppAt("/analyses/24/rules");
     fireEvent.click(
       await screen.findByRole("button", { name: "Run detection" }),
     );
@@ -724,7 +787,7 @@ describe("SENTINEL PCAP analysis", () => {
       limit: 100,
     });
     vi.mocked(trainModel).mockResolvedValue(anomalyModel(4));
-    render(<App />);
+    renderAppAt("/analyses/31/ml");
 
     fireEvent.click(await screen.findByLabelText("synthetic.pcap · 24 flows"));
     fireEvent.click(
@@ -775,11 +838,7 @@ describe("SENTINEL PCAP analysis", () => {
     vi.mocked(getAnomalyResults).mockResolvedValue(
       anomalyPage([anomalyResult(32, 2)], 1),
     );
-    render(<App />);
-
-    fireEvent.click(
-      await screen.findByRole("button", { name: /synthetic\.pcap/ }),
-    );
+    renderAppAt("/analyses/32/ml");
     fireEvent.click(
       await screen.findByRole("button", { name: "Run inference" }),
     );
@@ -826,11 +885,7 @@ describe("SENTINEL PCAP analysis", () => {
       )
       .mockResolvedValueOnce(anomalyPage([anomalyResult(33, 3, 26)], 26))
       .mockResolvedValueOnce(anomalyPage([anomalyResult(33, 3, 26)], 13));
-    render(<App />);
-
-    fireEvent.click(
-      await screen.findByRole("button", { name: /synthetic\.pcap/ }),
-    );
+    renderAppAt("/analyses/33/ml");
     expect(await screen.findByText("1–25 of 26")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Next anomalies" }));
     await waitFor(() =>
@@ -882,11 +937,7 @@ describe("SENTINEL PCAP analysis", () => {
           rejectInference = reject;
         }),
     );
-    render(<App />);
-
-    fireEvent.click(
-      await screen.findByRole("button", { name: /synthetic\.pcap/ }),
-    );
+    renderAppAt("/analyses/34/ml");
     fireEvent.click(
       await screen.findByRole("button", { name: "Run inference" }),
     );
@@ -901,6 +952,30 @@ describe("SENTINEL PCAP analysis", () => {
     );
   });
 });
+
+function renderAppAt(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <SentinelApplication />
+    </MemoryRouter>,
+  );
+}
+
+function HistoryControls() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  return (
+    <>
+      <output data-testid="current-path">{location.pathname}</output>
+      <button type="button" onClick={() => navigate(-1)}>
+        Browser back
+      </button>
+      <button type="button" onClick={() => navigate(1)}>
+        Browser forward
+      </button>
+    </>
+  );
+}
 
 function analysis(id: number): Analysis {
   return {

@@ -1,4 +1,11 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  BrowserRouter,
+  Link,
+  NavLink,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import {
   getAnalyses,
   getAnalysis,
@@ -23,6 +30,7 @@ import MlAnalysisPanel from "./components/MlAnalysisPanel";
 import HybridAnalysisPanel from "./components/HybridAnalysisPanel";
 import PipelinePanel from "./components/PipelinePanel";
 import MonitoringAnalytics from "./components/MonitoringAnalytics";
+import { resolveAppRoute } from "./routes";
 import {
   getAnalysisHistory,
   getDashboardOverview,
@@ -36,6 +44,33 @@ const FINDING_PAGE_SIZE = 25;
 type ServiceStatus = "checking" | "online" | "offline";
 
 export default function App() {
+  return (
+    <BrowserRouter>
+      <SentinelApplication />
+    </BrowserRouter>
+  );
+}
+
+export function SentinelApplication() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const route = resolveAppRoute(location.pathname);
+  const routeAnalysisId = route.params.analysisId;
+  const isAnalysisPage = [
+    "analysis",
+    "packets",
+    "flows",
+    "rules",
+    "ml",
+    "hybrid",
+    "pipeline",
+    "analytics",
+  ].includes(route.page);
+  const parsedAnalysisId = routeAnalysisId ? Number(routeAnalysisId) : null;
+  const validAnalysisId =
+    parsedAnalysisId !== null &&
+    Number.isSafeInteger(parsedAnalysisId) &&
+    parsedAnalysisId > 0;
   const [serviceStatus, setServiceStatus] = useState<ServiceStatus>("checking");
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [history, setHistory] = useState<OverviewAnalysis[]>([]);
@@ -45,9 +80,8 @@ export default function App() {
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [limits, setLimits] = useState<UploadLimits | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedAnalysis, setSelectedAnalysis] = useState<Analysis | null>(
-    null,
-  );
+  const [selectedAnalysisState, setSelectedAnalysis] =
+    useState<Analysis | null>(null);
   const [packets, setPackets] = useState<PacketList | null>(null);
   const [flows, setFlows] = useState<FlowList | null>(null);
   const [detectionSummary, setDetectionSummary] =
@@ -108,6 +142,10 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    setPageError(null);
+  }, [location.pathname]);
+
   async function refreshOverview(historyPageOffset = historyOffset) {
     try {
       const [nextOverview, historyPage] = await Promise.all([
@@ -138,49 +176,71 @@ export default function App() {
     }
   }
 
-  async function selectAnalysis(id: number, pageOffset = 0) {
-    setPacketLoading(true);
-    setPageError(null);
-    try {
-      const [analysis, packetPage] = await Promise.all([
-        getAnalysis(id),
-        getPackets(id, pageOffset, PACKET_PAGE_SIZE),
-      ]);
-      const summary = await getDetectionSummary(id);
-      let findingPage: FindingList | null = null;
-      if (summary.status === "completed") {
-        setFindingLoading(true);
-        findingPage = await getFindings(
-          id,
-          0,
-          FINDING_PAGE_SIZE,
-          findingSeverity || undefined,
-          findingRule || undefined,
-        );
+  const selectAnalysis = useCallback(
+    async (id: number, pageOffset = 0) => {
+      setPacketLoading(true);
+      setPageError(null);
+      try {
+        const [analysis, packetPage] = await Promise.all([
+          getAnalysis(id),
+          getPackets(id, pageOffset, PACKET_PAGE_SIZE),
+        ]);
+        const summary = await getDetectionSummary(id);
+        let findingPage: FindingList | null = null;
+        if (summary.status === "completed") {
+          setFindingLoading(true);
+          findingPage = await getFindings(
+            id,
+            0,
+            FINDING_PAGE_SIZE,
+            findingSeverity || undefined,
+            findingRule || undefined,
+          );
+        }
+        let flowPage: FlowList | null = null;
+        if (analysis.flow_generation_status === "completed") {
+          setFlowLoading(true);
+          flowPage = await getFlows(id, 0, FLOW_PAGE_SIZE);
+        }
+        setSelectedAnalysis(analysis);
+        setPackets(packetPage);
+        setOffset(pageOffset);
+        setFlows(flowPage);
+        setFlowOffset(0);
+        setFlowError(null);
+        setDetectionSummary(summary);
+        setFindings(findingPage);
+        setFindingOffset(0);
+        setDetectionError(summary.error_message);
+      } catch (error) {
+        setSelectedAnalysis(null);
+        setPageError(errorMessage(error));
+      } finally {
+        setPacketLoading(false);
+        setFlowLoading(false);
+        setFindingLoading(false);
       }
-      let flowPage: FlowList | null = null;
-      if (analysis.flow_generation_status === "completed") {
-        setFlowLoading(true);
-        flowPage = await getFlows(id, 0, FLOW_PAGE_SIZE);
-      }
-      setSelectedAnalysis(analysis);
-      setPackets(packetPage);
-      setOffset(pageOffset);
-      setFlows(flowPage);
-      setFlowOffset(0);
-      setFlowError(null);
-      setDetectionSummary(summary);
-      setFindings(findingPage);
-      setFindingOffset(0);
-      setDetectionError(summary.error_message);
-    } catch (error) {
-      setPageError(errorMessage(error));
-    } finally {
-      setPacketLoading(false);
-      setFlowLoading(false);
-      setFindingLoading(false);
+    },
+    [findingRule, findingSeverity],
+  );
+
+  useEffect(() => {
+    if (!routeAnalysisId) return;
+    if (!validAnalysisId || parsedAnalysisId === null) {
+      setSelectedAnalysis(null);
+      setPageError(null);
+      return;
     }
-  }
+    if (selectedAnalysisState?.id !== parsedAnalysisId) {
+      void selectAnalysis(parsedAnalysisId);
+    }
+  }, [
+    parsedAnalysisId,
+    routeAnalysisId,
+    selectAnalysis,
+    selectedAnalysisState?.id,
+    validAnalysisId,
+  ]);
 
   async function handleUpload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -205,6 +265,7 @@ export default function App() {
       setHistory(historyPage.items);
       setAnalysisTotal(historyPage.total);
       setSelectedAnalysis(result);
+      navigate(`/analyses/${result.id}/packets`);
       setOffset(0);
       setFlows(null);
       setFlowOffset(0);
@@ -331,14 +392,21 @@ export default function App() {
   const tooLarge = Boolean(
     selectedFile && limits && selectedFile.size > limits.max_upload_size_bytes,
   );
+  const routeAnalysis =
+    validAnalysisId && selectedAnalysisState?.id === parsedAnalysisId
+      ? selectedAnalysisState
+      : null;
+  const selectedAnalysis = routeAnalysis;
+  const navClass = ({ isActive }: { isActive: boolean }) =>
+    `rounded-md px-3 py-2 ${isActive ? "bg-signal/10 text-signal" : "hover:bg-panel hover:text-signal"} focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal`;
 
   return (
     <main className="min-h-screen bg-ink text-slate-100">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-6 sm:px-10">
         <header className="flex items-center justify-between border-b border-line pb-5">
-          <a
+          <Link
             className="flex items-center gap-3"
-            href="/"
+            to="/"
             aria-label="SENTINEL home"
           >
             <span className="grid h-10 w-10 place-items-center rounded-xl border border-signal/30 bg-signal/10 text-sm font-bold text-signal">
@@ -350,7 +418,7 @@ export default function App() {
               </span>
               <span className="text-xs text-slate-500">NETWORK SECURITY</span>
             </span>
-          </a>
+          </Link>
           <div className="flex items-center gap-2 rounded-full border border-line bg-panel px-3 py-2 text-xs text-slate-300">
             <span
               className={`h-2 w-2 rounded-full ${serviceStatus === "online" ? "bg-signal" : serviceStatus === "offline" ? "bg-rose-400" : "bg-amber-300"}`}
@@ -367,373 +435,400 @@ export default function App() {
           className="sticky top-0 z-10 -mx-6 mt-4 overflow-x-auto border-b border-line bg-ink/95 px-6 py-3 backdrop-blur sm:-mx-10 sm:px-10"
         >
           <ul className="flex min-w-max gap-2 text-xs text-slate-300">
-            {[
-              ["Overview", "overview"],
-              ["Upload", "upload"],
-              ["History", "analysis-history"],
-              ["Packets", "analysis-packets"],
-              ["Flows", "bidirectional-flows"],
-              ["Rules", "rule-findings"],
-              ["ML", "ml-detection"],
-              ["Hybrid risk", "hybrid-risk"],
-              ["Pipeline", "analysis-pipeline"],
-              ["Traffic analytics", "traffic-analytics"],
-              ["Security events", "security-events"],
-              ["Compare", "analysis-comparison"],
-            ].map(([label, target]) => (
+            {(
+              [
+                ["Overview", "/", true],
+                ["Upload", "/upload", true],
+                ["Analyses", "/analyses", false],
+                ["Security events", "/events", false],
+                ["Compare", "/compare", true],
+              ] as const
+            ).map(([label, target, end]) => (
               <li key={target}>
-                <a
-                  className="rounded-md px-3 py-2 hover:bg-panel hover:text-signal focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
-                  href={`#${target}`}
-                >
+                <NavLink to={target} end={end} className={navClass}>
                   {label}
-                </a>
+                </NavLink>
               </li>
             ))}
           </ul>
         </nav>
 
-        <section id="overview" className="scroll-mt-20 py-8">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-signal">
-                Persisted analysis · all-time
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-                Security overview
-              </h1>
-              <p className="mt-2 text-sm text-slate-400">
-                Counts reflect completed processing and the latest completed
-                detection, model inference, or hybrid assessment per analysis.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => void refreshOverview()}
-              className="rounded-lg border border-line px-3 py-2 text-xs text-slate-300 hover:border-signal/50 hover:text-signal"
-            >
-              Refresh overview
-            </button>
-          </div>
-          {overviewError && (
-            <p className="mt-4 text-sm text-rose-300" role="alert">
-              {overviewError}
+        <Breadcrumbs route={route} analysis={routeAnalysis} />
+        {routeAnalysisId && validAnalysisId && (
+          <AnalysisNavigation analysisId={parsedAnalysisId!} />
+        )}
+
+        {route.page === "not-found" ? (
+          <section className="py-16" role="alert">
+            <h1 className="text-2xl font-semibold">Page not found</h1>
+            <p className="mt-2 text-sm text-slate-400">
+              This SENTINEL page does not exist.
             </p>
-          )}
-          {!overview && !overviewError ? (
-            <p className="mt-6 text-sm text-slate-400" role="status">
-              Loading overview…
-            </p>
-          ) : null}
-          {overview && (
-            <>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <Metric
-                  label="Analyses"
-                  value={overview.analysis_count}
-                  detail={`${overview.completed_analysis_count} completed`}
-                />
-                <Metric
-                  label="Packets processed"
-                  value={overview.packet_count}
-                  detail="Completed capture analyses"
-                />
-                <Metric
-                  label="Bidirectional flows"
-                  value={overview.flow_count}
-                  detail="Generated flows only"
-                />
-                <Metric
-                  label="Latest rule findings"
-                  value={
-                    overview.rule_analysis_count
-                      ? overview.rule_finding_count
-                      : "—"
-                  }
-                  detail={`${overview.rule_analysis_count} analyses with completed rule runs`}
-                />
-                <Metric
-                  label="ML anomalies"
-                  value={
-                    overview.ml_analysis_count ? overview.ml_anomaly_count : "—"
-                  }
-                  detail={`${overview.ml_analysis_count} analyses with inference results`}
-                />
-                <Metric
-                  label="Hybrid assessments"
-                  value={overview.hybrid_assessment_count || "—"}
-                  detail="Latest assessment per analysis"
-                />
-                <Metric
-                  label="High or critical findings"
-                  value={
-                    overview.rule_analysis_count
-                      ? overview.high_priority_finding_count
-                      : "—"
-                  }
-                  detail="From latest completed rule runs"
-                />
+            <Link className="mt-4 inline-block text-signal" to="/">
+              Return to overview
+            </Link>
+          </section>
+        ) : null}
+        {isAnalysisPage && routeAnalysisId && !validAnalysisId ? (
+          <p className="mt-5 text-sm text-rose-300" role="alert">
+            Analysis ID must be a positive integer.
+          </p>
+        ) : null}
+
+        {route.page === "overview" && (
+          <section id="overview" className="py-8">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-signal">
+                  Persisted analysis · all-time
+                </p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+                  Security overview
+                </h1>
+                <p className="mt-2 text-sm text-slate-400">
+                  Counts reflect completed processing and the latest completed
+                  detection, model inference, or hybrid assessment per analysis.
+                </p>
               </div>
-              <div className="mt-5 grid gap-5 lg:grid-cols-2">
-                <div className="rounded-2xl border border-line bg-panel/70 p-5">
-                  <h2 className="text-sm font-semibold">
-                    Hybrid severity distribution
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Latest assessment for each analysis
-                  </p>
-                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
-                    {Object.entries(overview.severity_counts).map(
-                      ([severity, count]) => (
-                        <div
-                          key={severity}
-                          className="rounded-lg bg-ink/70 p-3"
-                        >
-                          <p className="text-[10px] uppercase tracking-wide text-slate-500">
-                            {severity}
-                          </p>
-                          <p className="mt-1 text-xl font-semibold">{count}</p>
-                        </div>
-                      ),
+              <button
+                type="button"
+                onClick={() => void refreshOverview()}
+                className="rounded-lg border border-line px-3 py-2 text-xs text-slate-300 hover:border-signal/50 hover:text-signal"
+              >
+                Refresh overview
+              </button>
+            </div>
+            {overviewError && (
+              <p className="mt-4 text-sm text-rose-300" role="alert">
+                {overviewError}
+              </p>
+            )}
+            {!overview && !overviewError ? (
+              <p className="mt-6 text-sm text-slate-400" role="status">
+                Loading overview…
+              </p>
+            ) : null}
+            {overview && (
+              <>
+                <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <Metric
+                    label="Analyses"
+                    value={overview.analysis_count}
+                    detail={`${overview.completed_analysis_count} completed`}
+                  />
+                  <Metric
+                    label="Packets processed"
+                    value={overview.packet_count}
+                    detail="Completed capture analyses"
+                  />
+                  <Metric
+                    label="Bidirectional flows"
+                    value={overview.flow_count}
+                    detail="Generated flows only"
+                  />
+                  <Metric
+                    label="Latest rule findings"
+                    value={
+                      overview.rule_analysis_count
+                        ? overview.rule_finding_count
+                        : "—"
+                    }
+                    detail={`${overview.rule_analysis_count} analyses with completed rule runs`}
+                  />
+                  <Metric
+                    label="ML anomalies"
+                    value={
+                      overview.ml_analysis_count
+                        ? overview.ml_anomaly_count
+                        : "—"
+                    }
+                    detail={`${overview.ml_analysis_count} analyses with inference results`}
+                  />
+                  <Metric
+                    label="Hybrid assessments"
+                    value={overview.hybrid_assessment_count || "—"}
+                    detail="Latest assessment per analysis"
+                  />
+                  <Metric
+                    label="High or critical findings"
+                    value={
+                      overview.rule_analysis_count
+                        ? overview.high_priority_finding_count
+                        : "—"
+                    }
+                    detail="From latest completed rule runs"
+                  />
+                </div>
+                <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-line bg-panel/70 p-5">
+                    <h2 className="text-sm font-semibold">
+                      Hybrid severity distribution
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Latest assessment for each analysis
+                    </p>
+                    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                      {Object.entries(overview.severity_counts).map(
+                        ([severity, count]) => (
+                          <div
+                            key={severity}
+                            className="rounded-lg bg-ink/70 p-3"
+                          >
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500">
+                              {severity}
+                            </p>
+                            <p className="mt-1 text-xl font-semibold">
+                              {count}
+                            </p>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                    <p className="mt-3 text-xs text-slate-500">
+                      Missing assessments are not represented as normal or safe.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-line bg-panel/70 p-5">
+                    <h2 className="text-sm font-semibold">Flow protocols</h2>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Persisted flows across completed flow-generation stages
+                    </p>
+                    {overview.protocol_distribution.length ? (
+                      <ul className="mt-4 space-y-3">
+                        {overview.protocol_distribution.map((item) => {
+                          const max = Math.max(
+                            ...overview.protocol_distribution.map(
+                              (row) => row.flow_count,
+                            ),
+                            1,
+                          );
+                          return (
+                            <li key={item.protocol}>
+                              <div className="mb-1 flex justify-between text-xs">
+                                <span>{item.protocol}</span>
+                                <span className="text-slate-400">
+                                  {item.flow_count}
+                                </span>
+                              </div>
+                              <div className="h-2 rounded-full bg-ink">
+                                <div
+                                  className="h-2 rounded-full bg-signal/80"
+                                  style={{
+                                    width: `${(item.flow_count / max) * 100}%`,
+                                  }}
+                                />
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <p className="mt-5 text-sm text-slate-500">
+                        No generated flow records are available.
+                      </p>
                     )}
                   </div>
-                  <p className="mt-3 text-xs text-slate-500">
-                    Missing assessments are not represented as normal or safe.
-                  </p>
                 </div>
-                <div className="rounded-2xl border border-line bg-panel/70 p-5">
-                  <h2 className="text-sm font-semibold">Flow protocols</h2>
+                <div className="mt-5 rounded-2xl border border-line bg-panel/70 p-5">
+                  <h2 className="text-sm font-semibold">
+                    Recent high-priority rule findings
+                  </h2>
                   <p className="mt-1 text-xs text-slate-500">
-                    Persisted flows across completed flow-generation stages
+                    High and critical findings from each analysis's latest
+                    completed rule run.
                   </p>
-                  {overview.protocol_distribution.length ? (
-                    <ul className="mt-4 space-y-3">
-                      {overview.protocol_distribution.map((item) => {
-                        const max = Math.max(
-                          ...overview.protocol_distribution.map(
-                            (row) => row.flow_count,
-                          ),
-                          1,
-                        );
-                        return (
-                          <li key={item.protocol}>
-                            <div className="mb-1 flex justify-between text-xs">
-                              <span>{item.protocol}</span>
-                              <span className="text-slate-400">
-                                {item.flow_count}
+                  {overview.recent_high_priority_findings.length ? (
+                    <ul className="mt-3 divide-y divide-line">
+                      {overview.recent_high_priority_findings.map((finding) => (
+                        <li key={finding.id}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void selectAnalysis(finding.analysis_id)
+                            }
+                            className="flex w-full flex-wrap items-center justify-between gap-3 py-3 text-left hover:text-signal"
+                          >
+                            <span>
+                              <span className="block text-sm font-medium">
+                                {finding.rule_name} · analysis #
+                                {finding.analysis_id}
                               </span>
-                            </div>
-                            <div className="h-2 rounded-full bg-ink">
-                              <div
-                                className="h-2 rounded-full bg-signal/80"
-                                style={{
-                                  width: `${(item.flow_count / max) * 100}%`,
-                                }}
-                              />
-                            </div>
-                          </li>
-                        );
-                      })}
+                              <span className="mt-1 block text-xs text-slate-400">
+                                {finding.explanation}
+                              </span>
+                              <span className="mt-1 block font-mono text-[11px] text-slate-500">
+                                {finding.source_ip ?? "—"} →{" "}
+                                {finding.destination_ip ?? "—"}
+                              </span>
+                            </span>
+                            <span
+                              className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase ${finding.severity === "critical" ? "border-rose-400/30 bg-rose-400/10 text-rose-200" : "border-orange-400/30 bg-orange-400/10 text-orange-200"}`}
+                            >
+                              {finding.severity}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
                     </ul>
                   ) : (
-                    <p className="mt-5 text-sm text-slate-500">
-                      No generated flow records are available.
+                    <p className="mt-4 text-sm text-slate-500">
+                      No high or critical findings in the available completed
+                      rule runs.
                     </p>
                   )}
                 </div>
-              </div>
-              <div className="mt-5 rounded-2xl border border-line bg-panel/70 p-5">
-                <h2 className="text-sm font-semibold">
-                  Recent high-priority rule findings
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  High and critical findings from each analysis's latest
-                  completed rule run.
-                </p>
-                {overview.recent_high_priority_findings.length ? (
-                  <ul className="mt-3 divide-y divide-line">
-                    {overview.recent_high_priority_findings.map((finding) => (
-                      <li key={finding.id}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void selectAnalysis(finding.analysis_id)
-                          }
+                <div className="mt-5 rounded-2xl border border-line bg-panel/70 p-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-sm font-semibold">Recent analyses</h2>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Open an analysis to inspect its stored results.
+                      </p>
+                    </div>
+                    <Link
+                      to="/analyses"
+                      className="text-xs text-signal hover:underline"
+                    >
+                      Full history
+                    </Link>
+                  </div>
+                  {overview.recent_analyses.length ? (
+                    <div className="mt-3 divide-y divide-line">
+                      {overview.recent_analyses.map((item) => (
+                        <Link
+                          key={item.id}
+                          to={`/analyses/${item.id}`}
                           className="flex w-full flex-wrap items-center justify-between gap-3 py-3 text-left hover:text-signal"
                         >
                           <span>
                             <span className="block text-sm font-medium">
-                              {finding.rule_name} · analysis #
-                              {finding.analysis_id}
+                              {item.original_filename}
                             </span>
-                            <span className="mt-1 block text-xs text-slate-400">
-                              {finding.explanation}
-                            </span>
-                            <span className="mt-1 block font-mono text-[11px] text-slate-500">
-                              {finding.source_ip ?? "—"} →{" "}
-                              {finding.destination_ip ?? "—"}
+                            <span className="mt-1 block text-xs text-slate-500">
+                              {item.capture_format.toUpperCase()} ·{" "}
+                              {item.packet_count === null
+                                ? "—"
+                                : item.packet_count}{" "}
+                              packets ·{" "}
+                              {item.flow_count === null ? "—" : item.flow_count}{" "}
+                              flows
                             </span>
                           </span>
-                          <span
-                            className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase ${finding.severity === "critical" ? "border-rose-400/30 bg-rose-400/10 text-rose-200" : "border-orange-400/30 bg-orange-400/10 text-orange-200"}`}
-                          >
-                            {finding.severity}
+                          <span className="text-xs text-slate-400">
+                            Rules {item.detection_status} · ML {item.ml_status}{" "}
+                            · Hybrid {item.hybrid_status}
+                            {item.risk_score === null
+                              ? ""
+                              : ` · risk ${item.risk_score} (${item.severity})`}
                           </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-4 text-sm text-slate-500">
-                    No high or critical findings in the available completed rule
-                    runs.
-                  </p>
-                )}
-              </div>
-              <div className="mt-5 rounded-2xl border border-line bg-panel/70 p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-sm font-semibold">Recent analyses</h2>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Open an analysis to inspect its stored results.
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-sm text-slate-500">
+                      No recent analyses are available.
                     </p>
-                  </div>
-                  <a
-                    href="#analysis-history"
-                    className="text-xs text-signal hover:underline"
-                  >
-                    Full history
-                  </a>
+                  )}
                 </div>
-                {overview.recent_analyses.length ? (
-                  <div className="mt-3 divide-y divide-line">
-                    {overview.recent_analyses.map((item) => (
-                      <button
-                        type="button"
-                        key={item.id}
-                        onClick={() => void selectAnalysis(item.id)}
-                        className="flex w-full flex-wrap items-center justify-between gap-3 py-3 text-left hover:text-signal"
-                      >
-                        <span>
-                          <span className="block text-sm font-medium">
-                            {item.original_filename}
-                          </span>
-                          <span className="mt-1 block text-xs text-slate-500">
-                            {item.capture_format.toUpperCase()} ·{" "}
-                            {item.packet_count === null
-                              ? "—"
-                              : item.packet_count}{" "}
-                            packets ·{" "}
-                            {item.flow_count === null ? "—" : item.flow_count}{" "}
-                            flows
-                          </span>
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          Rules {item.detection_status} · ML {item.ml_status} ·
-                          Hybrid {item.hybrid_status}
-                          {item.risk_score === null
-                            ? ""
-                            : ` · risk ${item.risk_score} (${item.severity})`}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-4 text-sm text-slate-500">
-                    No recent analyses are available.
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-        </section>
-
-        <section id="upload" className="scroll-mt-20 py-10">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-signal">
-            Offline capture analysis
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            PCAP ingestion
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-            Upload an authorized PCAP or PCAPNG capture. SENTINEL records packet
-            metadata without storing packet payloads.
-          </p>
-        </section>
-
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.5fr)]">
-          <section className="rounded-2xl border border-line bg-panel/70 p-5 sm:p-6">
-            <h2 className="text-base font-semibold">Upload a capture</h2>
-            <p className="mt-2 text-sm text-slate-400">
-              PCAP and PCAPNG are identified from file contents.
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              Maximum size:{" "}
-              {limits
-                ? formatBytes(limits.max_upload_size_bytes)
-                : "Loading limit…"}
-            </p>
-            <form className="mt-5 space-y-4" onSubmit={handleUpload}>
-              <label
-                className="block text-sm font-medium text-slate-300"
-                htmlFor="capture-file"
-              >
-                Capture file
-              </label>
-              <input
-                id="capture-file"
-                type="file"
-                accept=".pcap,.pcapng,application/vnd.tcpdump.pcap,application/x-pcapng"
-                onChange={(event) => {
-                  setSelectedFile(event.currentTarget.files?.[0] ?? null);
-                  setUploadError(null);
-                }}
-                className="block w-full cursor-pointer rounded-lg border border-line bg-ink p-3 text-sm text-slate-300 file:mr-4 file:rounded-md file:border-0 file:bg-signal/10 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-signal"
-              />
-              {selectedFile && (
-                <p className="text-xs text-slate-500">
-                  {selectedFile.name} · {formatBytes(selectedFile.size)}
-                </p>
-              )}
-              {tooLarge && (
-                <p className="text-sm text-rose-300" role="alert">
-                  This file exceeds the configured upload limit.
-                </p>
-              )}
-              {uploadError && (
-                <p className="text-sm text-rose-300" role="alert">
-                  {uploadError}
-                </p>
-              )}
-              {uploadProgress !== null && (
-                <div>
-                  <div className="mb-1 flex justify-between text-xs text-slate-400">
-                    <span>Uploading and analyzing</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <progress
-                    className="h-2 w-full accent-signal"
-                    aria-label="Upload progress"
-                    max={100}
-                    value={uploadProgress}
-                  />
-                </div>
-              )}
-              <button
-                type="submit"
-                disabled={
-                  !selectedFile ||
-                  !limits ||
-                  tooLarge ||
-                  uploadProgress !== null
-                }
-                className="rounded-lg bg-signal px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {uploadProgress === null ? "Upload and analyze" : "Processing…"}
-              </button>
-            </form>
+              </>
+            )}
           </section>
+        )}
 
+        {route.page === "upload" && (
+          <>
+            <section id="upload" className="py-10">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-signal">
+                Offline capture analysis
+              </p>
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                PCAP ingestion
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
+                Upload an authorized PCAP or PCAPNG capture. SENTINEL records
+                packet metadata without storing packet payloads.
+              </p>
+            </section>
+
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.5fr)]">
+              <section className="rounded-2xl border border-line bg-panel/70 p-5 sm:p-6">
+                <h2 className="text-base font-semibold">Upload a capture</h2>
+                <p className="mt-2 text-sm text-slate-400">
+                  PCAP and PCAPNG are identified from file contents.
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Maximum size:{" "}
+                  {limits
+                    ? formatBytes(limits.max_upload_size_bytes)
+                    : "Loading limit…"}
+                </p>
+                <form className="mt-5 space-y-4" onSubmit={handleUpload}>
+                  <label
+                    className="block text-sm font-medium text-slate-300"
+                    htmlFor="capture-file"
+                  >
+                    Capture file
+                  </label>
+                  <input
+                    id="capture-file"
+                    type="file"
+                    accept=".pcap,.pcapng,application/vnd.tcpdump.pcap,application/x-pcapng"
+                    onChange={(event) => {
+                      setSelectedFile(event.currentTarget.files?.[0] ?? null);
+                      setUploadError(null);
+                    }}
+                    className="block w-full cursor-pointer rounded-lg border border-line bg-ink p-3 text-sm text-slate-300 file:mr-4 file:rounded-md file:border-0 file:bg-signal/10 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-signal"
+                  />
+                  {selectedFile && (
+                    <p className="text-xs text-slate-500">
+                      {selectedFile.name} · {formatBytes(selectedFile.size)}
+                    </p>
+                  )}
+                  {tooLarge && (
+                    <p className="text-sm text-rose-300" role="alert">
+                      This file exceeds the configured upload limit.
+                    </p>
+                  )}
+                  {uploadError && (
+                    <p className="text-sm text-rose-300" role="alert">
+                      {uploadError}
+                    </p>
+                  )}
+                  {uploadProgress !== null && (
+                    <div>
+                      <div className="mb-1 flex justify-between text-xs text-slate-400">
+                        <span>Uploading and analyzing</span>
+                        <span>{uploadProgress}%</span>
+                      </div>
+                      <progress
+                        className="h-2 w-full accent-signal"
+                        aria-label="Upload progress"
+                        max={100}
+                        value={uploadProgress}
+                      />
+                    </div>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={
+                      !selectedFile ||
+                      !limits ||
+                      tooLarge ||
+                      uploadProgress !== null
+                    }
+                    className="rounded-lg bg-signal px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {uploadProgress === null
+                      ? "Upload and analyze"
+                      : "Processing…"}
+                  </button>
+                </form>
+              </section>
+            </div>
+          </>
+        )}
+
+        {route.page === "analyses" && (
           <section
             id="analysis-history"
             className="scroll-mt-20 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6"
@@ -756,10 +851,9 @@ export default function App() {
               <ul className="mt-4 divide-y divide-line">
                 {history.map((analysis) => (
                   <li key={analysis.id}>
-                    <button
+                    <Link
                       className="flex w-full items-center justify-between gap-4 py-3 text-left hover:text-signal"
-                      onClick={() => void selectAnalysis(analysis.id)}
-                      type="button"
+                      to={`/analyses/${analysis.id}`}
                     >
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-medium">
@@ -788,7 +882,7 @@ export default function App() {
                         </span>
                       </span>
                       <StatusBadge status={analysis.status} />
-                    </button>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -816,7 +910,7 @@ export default function App() {
               </div>
             )}
           </section>
-        </div>
+        )}
 
         {pageError && (
           <p className="mt-5 text-sm text-rose-300" role="alert">
@@ -824,14 +918,18 @@ export default function App() {
           </p>
         )}
 
-        {!selectedAnalysis && (
+        {route.page === "analysis" && (
+          <AnalysisDetails analysis={routeAnalysis} loading={packetLoading} />
+        )}
+
+        {route.page === "packets" && validAnalysisId && !selectedAnalysis && (
           <SectionPlaceholder
             id="analysis-packets"
             title="Packet metadata"
             message="Upload a capture or open an analysis from history to inspect its packets."
           />
         )}
-        {selectedAnalysis && (
+        {route.page === "packets" && selectedAnalysis && (
           <section
             id="analysis-packets"
             className="mt-6 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6"
@@ -963,14 +1061,14 @@ export default function App() {
           </section>
         )}
 
-        {!selectedAnalysis && (
+        {route.page === "flows" && validAnalysisId && !selectedAnalysis && (
           <SectionPlaceholder
             id="bidirectional-flows"
             title="Bidirectional flows"
             message="Select an analysis to generate and inspect persisted network flows."
           />
         )}
-        {selectedAnalysis && (
+        {route.page === "flows" && selectedAnalysis && (
           <section
             id="bidirectional-flows"
             className="mt-6 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6"
@@ -1119,14 +1217,14 @@ export default function App() {
           </section>
         )}
 
-        {!selectedAnalysis && (
+        {route.page === "rules" && validAnalysisId && !selectedAnalysis && (
           <SectionPlaceholder
             id="rule-findings"
             title="Rule detection"
             message="Select an analysis with generated flows to run and inspect configured detection rules."
           />
         )}
-        {selectedAnalysis && (
+        {route.page === "rules" && selectedAnalysis && (
           <section
             id="rule-findings"
             className="mt-6 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6"
@@ -1344,34 +1442,68 @@ export default function App() {
           </section>
         )}
 
-        <div id="ml-detection" className="scroll-mt-20">
-          <MlAnalysisPanel
-            analysis={selectedAnalysis}
-            analyses={analyses}
-            onResultsChanged={refreshOverview}
+        {route.page === "ml" && (
+          <div id="ml-detection">
+            <MlAnalysisPanel
+              analysis={routeAnalysis}
+              analyses={analyses}
+              onResultsChanged={refreshOverview}
+            />
+          </div>
+        )}
+        {route.page === "hybrid" && (
+          <div id="hybrid-risk">
+            <HybridAnalysisPanel
+              analysis={routeAnalysis}
+              detectionSummary={detectionSummary}
+              onResultsChanged={refreshOverview}
+            />
+          </div>
+        )}
+        {route.page === "pipeline" && (
+          <div id="analysis-pipeline">
+            <PipelinePanel
+              analysis={routeAnalysis}
+              detectionSummary={detectionSummary}
+              onResultsChanged={refreshOverview}
+            />
+          </div>
+        )}
+        {route.page === "analytics" && (
+          <MonitoringAnalytics
+            analyses={history}
+            selectedAnalysis={null}
+            selectedAnalysisId={parsedAnalysisId ?? undefined}
+            onOpenAnalysis={(id) => navigate(`/analyses/${id}/flows`)}
+            view="traffic"
           />
-        </div>
-        <div id="hybrid-risk" className="scroll-mt-20">
-          <HybridAnalysisPanel
-            analysis={selectedAnalysis}
-            detectionSummary={detectionSummary}
-            onResultsChanged={refreshOverview}
+        )}
+        {route.page === "events" && (
+          <MonitoringAnalytics
+            analyses={history}
+            selectedAnalysis={null}
+            onOpenAnalysis={(id) => navigate(`/analyses/${id}`)}
+            view="events"
+            onOpenEvent={(id) => navigate(`/events/${encodeURIComponent(id)}`)}
           />
-        </div>
-        <div id="analysis-pipeline" className="scroll-mt-20">
-          <PipelinePanel
-            analysis={selectedAnalysis}
-            detectionSummary={detectionSummary}
-            onResultsChanged={refreshOverview}
+        )}
+        {route.page === "event" && (
+          <MonitoringAnalytics
+            analyses={history}
+            selectedAnalysis={null}
+            onOpenAnalysis={(id) => navigate(`/analyses/${id}`)}
+            view="event"
+            initialEventId={route.params.eventId}
           />
-        </div>
-        <MonitoringAnalytics
-          analyses={history}
-          selectedAnalysis={
-            history.find((item) => item.id === selectedAnalysis?.id) ?? null
-          }
-          onOpenAnalysis={(id) => void selectAnalysis(id)}
-        />
+        )}
+        {route.page === "compare" && (
+          <MonitoringAnalytics
+            analyses={history}
+            selectedAnalysis={null}
+            onOpenAnalysis={(id) => navigate(`/analyses/${id}`)}
+            view="compare"
+          />
+        )}
 
         <footer className="mt-auto border-t border-line pt-4 text-xs text-slate-600">
           SENTINEL · Authorized network monitoring
@@ -1417,6 +1549,171 @@ function SectionPlaceholder({
     >
       <h2 className="text-sm font-semibold">{title}</h2>
       <p className="mt-2 text-sm text-slate-500">{message}</p>
+    </section>
+  );
+}
+
+function Breadcrumbs({
+  route,
+  analysis,
+}: {
+  route: ReturnType<typeof resolveAppRoute>;
+  analysis: Analysis | null;
+}) {
+  const analysisId = route.params.analysisId;
+  return (
+    <nav aria-label="Breadcrumb" className="py-4 text-xs text-slate-500">
+      <ol className="flex flex-wrap items-center gap-2">
+        <li>
+          <Link className="hover:text-signal" to="/">
+            Overview
+          </Link>
+        </li>
+        {analysisId ? (
+          <>
+            <li aria-hidden="true">/</li>
+            <li>
+              <Link className="hover:text-signal" to="/analyses">
+                Analyses
+              </Link>
+            </li>
+            <li aria-hidden="true">/</li>
+            <li>
+              <Link
+                className="hover:text-signal"
+                to={`/analyses/${analysisId}`}
+              >
+                {analysis
+                  ? `#${analysis.id} · ${analysis.original_filename}`
+                  : `Analysis #${analysisId}`}
+              </Link>
+            </li>
+          </>
+        ) : route.page === "event" || route.page === "events" ? (
+          <>
+            <li aria-hidden="true">/</li>
+            <li>
+              <Link className="hover:text-signal" to="/events">
+                Security events
+              </Link>
+            </li>
+          </>
+        ) : route.page !== "overview" ? (
+          <>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page" className="text-slate-300">
+              {route.title}
+            </li>
+          </>
+        ) : null}
+        {analysisId && (
+          <>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page" className="text-slate-300">
+              {route.title}
+            </li>
+          </>
+        )}
+        {route.page === "event" && (
+          <>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page" className="text-slate-300">
+              Event details
+            </li>
+          </>
+        )}
+      </ol>
+    </nav>
+  );
+}
+
+function AnalysisNavigation({ analysisId }: { analysisId: number }) {
+  const links = [
+    ["Details", ""],
+    ["Packets", "/packets"],
+    ["Flows", "/flows"],
+    ["Rules", "/rules"],
+    ["ML", "/ml"],
+    ["Hybrid", "/hybrid"],
+    ["Pipeline", "/pipeline"],
+    ["Traffic analytics", "/analytics"],
+  ] as const;
+  return (
+    <nav
+      aria-label={`Analysis ${analysisId} navigation`}
+      className="-mt-1 mb-4 overflow-x-auto"
+    >
+      <ul className="flex min-w-max gap-2 text-xs">
+        {links.map(([label, suffix]) => (
+          <li key={label}>
+            <NavLink
+              end={!suffix}
+              to={`/analyses/${analysisId}${suffix}`}
+              className={({ isActive }) =>
+                `rounded-md border px-3 py-2 ${isActive ? "border-signal/40 bg-signal/10 text-signal" : "border-line text-slate-400 hover:text-slate-100"}`
+              }
+            >
+              {label}
+            </NavLink>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+function AnalysisDetails({
+  analysis,
+  loading,
+}: {
+  analysis: Analysis | null;
+  loading: boolean;
+}) {
+  if (!analysis) {
+    return (
+      <section
+        className="rounded-2xl border border-line bg-panel/70 p-6"
+        aria-live="polite"
+      >
+        <h1 className="text-xl font-semibold">Analysis details</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          {loading ? "Loading analysis…" : "The analysis could not be loaded."}
+        </p>
+        <Link className="mt-4 inline-block text-sm text-signal" to="/analyses">
+          Back to analysis history
+        </Link>
+      </section>
+    );
+  }
+  return (
+    <section className="rounded-2xl border border-line bg-panel/70 p-6">
+      <p className="text-xs uppercase tracking-widest text-signal">
+        Analysis details
+      </p>
+      <h1 className="mt-2 text-2xl font-semibold">
+        {analysis.original_filename}
+      </h1>
+      <p className="mt-2 text-sm text-slate-400">
+        Analysis #{analysis.id} · {analysis.capture_format.toUpperCase()} ·{" "}
+        {formatBytes(analysis.file_size_bytes)} · {analysis.packet_count}{" "}
+        packets
+      </p>
+      <div className="mt-5 flex flex-wrap gap-2 text-xs">
+        <StatusBadge status={analysis.status} />
+        <span className="rounded-full border border-line px-3 py-1.5 text-slate-300">
+          {analysis.flow_count ?? "—"} flows ·{" "}
+          {analysis.flow_generation_status.replaceAll("_", " ")}
+        </span>
+      </div>
+      {analysis.error_message && (
+        <p role="alert" className="mt-4 text-sm text-rose-300">
+          {analysis.error_message}
+        </p>
+      )}
+      <p className="mt-6 text-sm text-slate-400">
+        Choose a section above to inspect this analysis and its persisted
+        detection results.
+      </p>
     </section>
   );
 }

@@ -6,6 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import type { Analysis } from "../api/analyses";
 import type { DetectionSummary } from "../api/detections";
 import type {
@@ -58,10 +59,12 @@ describe("HybridAnalysisPanel", () => {
     vi.mocked(getHybridGroups).mockResolvedValue(groupPage([group()], 1));
     vi.mocked(getHybridEvidence).mockResolvedValue(evidencePage());
     render(
-      <HybridAnalysisPanel
-        analysis={analysis()}
-        detectionSummary={detectionSummary()}
-      />,
+      <MemoryRouter>
+        <HybridAnalysisPanel
+          analysis={analysis()}
+          detectionSummary={detectionSummary()}
+        />
+      </MemoryRouter>,
     );
 
     await screen.findByRole("option", { name: "Run #5" });
@@ -83,10 +86,15 @@ describe("HybridAnalysisPanel", () => {
     expect(
       await screen.findByText("Original evidence snapshot"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", {
+        name: "Synthetic port probing · finding #31",
+      }),
+    ).toHaveAttribute("href", "/analyses/7/rules");
     expect(screen.getByText(/synthetic rule evidence/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /finding #31/ })).toHaveAttribute(
       "href",
-      "#rule-findings",
+      "/analyses/7/rules",
     );
   });
 
@@ -103,10 +111,12 @@ describe("HybridAnalysisPanel", () => {
       limit: 100,
     });
     render(
-      <HybridAnalysisPanel
-        analysis={analysis()}
-        detectionSummary={noDetection}
-      />,
+      <MemoryRouter>
+        <HybridAnalysisPanel
+          analysis={analysis()}
+          detectionSummary={noDetection}
+        />
+      </MemoryRouter>,
     );
 
     expect(await screen.findByText(/Run rule detection/)).toBeInTheDocument();
@@ -120,10 +130,12 @@ describe("HybridAnalysisPanel", () => {
       new Error("Run inference for every flow first."),
     );
     render(
-      <HybridAnalysisPanel
-        analysis={analysis()}
-        detectionSummary={detectionSummary()}
-      />,
+      <MemoryRouter>
+        <HybridAnalysisPanel
+          analysis={analysis()}
+          detectionSummary={detectionSummary()}
+        />
+      </MemoryRouter>,
     );
     await screen.findByRole("option", { name: "Run #5" });
     fireEvent.change(screen.getByLabelText("Hybrid model"), {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { Analysis } from "../api/analyses";
 import type { DetectionSummary } from "../api/detections";
 import {
@@ -310,12 +311,12 @@ export default function PipelinePanel({
               </p>
             </div>
             {run.risk_score !== null && (
-              <a
-                href="#hybrid-analysis"
+              <Link
+                to={`/analyses/${analysisId}/hybrid`}
                 className="text-xs text-signal underline"
               >
                 Risk priority {run.risk_score} · {run.severity}
-              </a>
+              </Link>
             )}
           </div>
           <ol className="mt-3 space-y-2">
@@ -361,21 +362,36 @@ export default function PipelinePanel({
             aria-label="Pipeline result sections"
             className="mt-3 flex flex-wrap gap-3 text-xs"
           >
-            <a href="#analysis-packets" className="text-signal underline">
+            <Link
+              to={`/analyses/${analysisId}/packets`}
+              className="text-signal underline"
+            >
               Packets
-            </a>
-            <a href="#bidirectional-flows" className="text-signal underline">
+            </Link>
+            <Link
+              to={`/analyses/${analysisId}/flows`}
+              className="text-signal underline"
+            >
               Flows
-            </a>
-            <a href="#rule-findings" className="text-signal underline">
+            </Link>
+            <Link
+              to={`/analyses/${analysisId}/rules`}
+              className="text-signal underline"
+            >
               Rule findings
-            </a>
-            <a href="#ml-analysis" className="text-signal underline">
+            </Link>
+            <Link
+              to={`/analyses/${analysisId}/ml`}
+              className="text-signal underline"
+            >
               ML results
-            </a>
-            <a href="#hybrid-analysis" className="text-signal underline">
+            </Link>
+            <Link
+              to={`/analyses/${analysisId}/hybrid`}
+              className="text-signal underline"
+            >
               Hybrid assessment
-            </a>
+            </Link>
           </nav>
         </div>
       )}

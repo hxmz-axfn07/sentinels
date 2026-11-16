@@ -6,6 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import type { Analysis } from "../api/analyses";
 import type { DetectionSummary } from "../api/detections";
 import { getModels } from "../api/ml";
@@ -72,7 +73,12 @@ describe("pipeline panel", () => {
   it("submits only the selected stages and displays persisted stage results", async () => {
     vi.mocked(startPipeline).mockResolvedValue(completedRun());
     render(
-      <PipelinePanel analysis={analysis} detectionSummary={detectionSummary} />,
+      <MemoryRouter>
+        <PipelinePanel
+          analysis={analysis}
+          detectionSummary={detectionSummary}
+        />
+      </MemoryRouter>,
     );
 
     const runButton = await screen.findByRole("button", {
@@ -92,7 +98,7 @@ describe("pipeline panel", () => {
     expect(screen.getByText("finding count: 0")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Rule findings" })).toHaveAttribute(
       "href",
-      "#rule-findings",
+      "/analyses/7/rules",
     );
   });
 
@@ -101,7 +107,12 @@ describe("pipeline panel", () => {
       new Error("Persisted flows are incomplete."),
     );
     render(
-      <PipelinePanel analysis={analysis} detectionSummary={detectionSummary} />,
+      <MemoryRouter>
+        <PipelinePanel
+          analysis={analysis}
+          detectionSummary={detectionSummary}
+        />
+      </MemoryRouter>,
     );
     fireEvent.click(
       await screen.findByRole("button", {

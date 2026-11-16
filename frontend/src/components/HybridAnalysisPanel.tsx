@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import type { Analysis } from "../api/analyses";
 import type { DetectionSummary } from "../api/detections";
 import {
@@ -515,22 +516,28 @@ function EvidencePanel({
               {item.source}
             </span>
             {item.source === "rule" ? (
-              <a className="text-signal underline" href="#rule-findings">
+              <Link
+                className="text-signal underline"
+                to={`/analyses/${analysisId}/rules`}
+              >
                 {item.rule_name} · finding #{item.detection_finding_id}
-              </a>
+              </Link>
             ) : (
-              <a className="text-signal underline" href="#ml-analysis">
+              <Link
+                className="text-signal underline"
+                to={`/analyses/${analysisId}/ml`}
+              >
                 Anomaly result #{item.anomaly_result_id}
-              </a>
+              </Link>
             )}
             {item.flow_id && (
-              <a
+              <Link
                 className="font-mono text-slate-400 underline"
-                href="#bidirectional-flows"
+                to={`/analyses/${analysisId}/flows`}
                 title={item.flow_id}
               >
                 Flow {item.flow_id.slice(0, 12)}…
-              </a>
+              </Link>
             )}
             <span className="text-slate-500">Analysis #{analysisId}</span>
           </div>

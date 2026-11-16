@@ -6,6 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import MonitoringAnalytics from "./MonitoringAnalytics";
 import type { OverviewAnalysis } from "../api/dashboard";
 
@@ -159,11 +160,13 @@ describe("MonitoringAnalytics", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     render(
-      <MonitoringAnalytics
-        analyses={analyses}
-        selectedAnalysis={analyses[0]}
-        onOpenAnalysis={vi.fn()}
-      />,
+      <MemoryRouter>
+        <MonitoringAnalytics
+          analyses={analyses}
+          selectedAnalysis={analyses[0]}
+          onOpenAnalysis={vi.fn()}
+        />
+      </MemoryRouter>,
     );
 
     expect(
@@ -247,11 +250,13 @@ describe("MonitoringAnalytics", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     render(
-      <MonitoringAnalytics
-        analyses={analyses}
-        selectedAnalysis={analyses[0]}
-        onOpenAnalysis={vi.fn()}
-      />,
+      <MemoryRouter>
+        <MonitoringAnalytics
+          analyses={analyses}
+          selectedAnalysis={analyses[0]}
+          onOpenAnalysis={vi.fn()}
+        />
+      </MemoryRouter>,
     );
     const severityFilter = screen.getByLabelText("Severity");
     fireEvent.change(severityFilter, { target: { value: "high" } });
@@ -291,11 +296,13 @@ describe("MonitoringAnalytics", () => {
       ),
     );
     render(
-      <MonitoringAnalytics
-        analyses={[]}
-        selectedAnalysis={null}
-        onOpenAnalysis={vi.fn()}
-      />,
+      <MemoryRouter>
+        <MonitoringAnalytics
+          analyses={[]}
+          selectedAnalysis={null}
+          onOpenAnalysis={vi.fn()}
+        />
+      </MemoryRouter>,
     );
     expect(
       await screen.findByText(
@@ -321,11 +328,13 @@ describe("MonitoringAnalytics", () => {
       ),
     );
     render(
-      <MonitoringAnalytics
-        analyses={[]}
-        selectedAnalysis={null}
-        onOpenAnalysis={vi.fn()}
-      />,
+      <MemoryRouter>
+        <MonitoringAnalytics
+          analyses={[]}
+          selectedAnalysis={null}
+          onOpenAnalysis={vi.fn()}
+        />
+      </MemoryRouter>,
     );
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Synthetic API unavailable.",
