@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.analyses import router as analyses_router
+from app.api.dashboard import router as dashboard_router
 from app.api.detections import router as detections_router
 from app.api.flows import router as flows_router
 from app.api.health import router as health_router
@@ -21,6 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(health_router)
+app.include_router(dashboard_router)
 app.include_router(analyses_router)
 app.include_router(flows_router)
 app.include_router(detections_router)

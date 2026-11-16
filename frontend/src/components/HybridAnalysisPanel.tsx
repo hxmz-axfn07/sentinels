@@ -28,11 +28,13 @@ const SEVERITIES: (HybridSeverity | "")[] = [
 type Props = {
   analysis: Analysis | null;
   detectionSummary: DetectionSummary | null;
+  onResultsChanged?: () => void;
 };
 
 export default function HybridAnalysisPanel({
   analysis,
   detectionSummary,
+  onResultsChanged,
 }: Props) {
   const [summary, setSummary] = useState<HybridSummary | null>(null);
   const [models, setModels] = useState<AnomalyModel[]>([]);
@@ -143,6 +145,7 @@ export default function HybridAnalysisPanel({
         Number(selectedModelId),
       );
       setAssessment(result);
+      onResultsChanged?.();
       setSummary({
         analysis_id: analysis.id,
         status: "completed",

@@ -16,6 +16,8 @@ import type {
 import type { FlowList, NetworkFlow } from "./api/flows";
 import type { AnomalyModel, AnomalyResultList, AnomalySummary } from "./api/ml";
 import type { HybridSummary } from "./api/hybrid";
+import type { DashboardOverview, OverviewAnalysis } from "./api/dashboard";
+import { getAnalysisHistory, getDashboardOverview } from "./api/dashboard";
 import {
   getAnalyses,
   getAnalysis,
@@ -55,6 +57,10 @@ vi.mock("./api/analyses", () => ({
 }));
 
 vi.mock("./api/health", () => ({ getHealth: vi.fn() }));
+vi.mock("./api/dashboard", () => ({
+  getAnalysisHistory: vi.fn(),
+  getDashboardOverview: vi.fn(),
+}));
 vi.mock("./api/hybrid", () => ({
   getHybridEvidence: vi.fn(),
   getHybridGroups: vi.fn(),
@@ -89,6 +95,13 @@ afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getHealth).mockResolvedValue({ status: "ok" });
+  vi.mocked(getDashboardOverview).mockResolvedValue(dashboardOverview());
+  vi.mocked(getAnalysisHistory).mockResolvedValue({
+    items: [],
+    total: 0,
+    offset: 0,
+    limit: 25,
+  });
   vi.mocked(getHybridSummary).mockImplementation(async (analysisId) =>
     hybridSummary(analysisId),
   );
@@ -146,6 +159,17 @@ beforeEach(() => {
     offset: 0,
     limit: 100,
   });
+  vi.mocked(getAnalysisHistory).mockImplementation(
+    async (offset = 0, limit = 25) => {
+      const page = await getAnalyses(offset, limit);
+      return {
+        items: page.items.map(historyAnalysis),
+        total: page.total,
+        offset,
+        limit,
+      };
+    },
+  );
   vi.mocked(getAnalysis).mockImplementation(async (id) => analysis(id));
   vi.mocked(getPackets).mockResolvedValue(packetPage([packet(1)], 1));
   vi.mocked(generateFlows).mockResolvedValue({
@@ -187,10 +211,115 @@ beforeEach(() => {
 });
 
 describe("SENTINEL PCAP analysis", () => {
+  it("renders persisted overview counts, coverage and protocol distribution", async () => {
+    vi.mocked(getDashboardOverview).mockResolvedValue(
+      dashboardOverview({
+        analysis_count: 3,
+        completed_analysis_count: 2,
+        packet_count: 91,
+        flow_count: 18,
+        rule_analysis_count: 1,
+        rule_finding_count: 2,
+        high_priority_finding_count: 1,
+        ml_analysis_count: 1,
+        ml_anomaly_count: 1,
+        hybrid_assessment_count: 1,
+        protocol_distribution: [{ protocol: "TCP", flow_count: 12 }],
+        recent_analyses: [
+          {
+            id: 90,
+            original_filename: "synthetic-overview.pcap",
+            file_size_bytes: 128,
+            capture_format: "pcap",
+            status: "completed",
+            packet_count: 91,
+            flow_count: 18,
+            flow_generation_status: "completed",
+            created_at: "2026-11-16T00:00:00Z",
+            detection_status: "completed",
+            finding_count: 2,
+            ml_status: "completed",
+            anomaly_count: 1,
+            hybrid_status: "completed",
+            risk_score: "62.00",
+            severity: "high",
+          },
+        ],
+        recent_high_priority_findings: [
+          {
+            id: 4,
+            analysis_id: 90,
+            rule_id: "PORT_SCAN",
+            rule_name: "Multi-port probing",
+            severity: "high",
+            source_ip: "192.0.2.10",
+            destination_ip: "198.51.100.20",
+            explanation: "Synthetic source contacted multiple target ports.",
+            created_at: "2026-11-16T00:00:00Z",
+          },
+        ],
+      }),
+    );
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Security overview" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("91", { selector: "p" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("synthetic-overview.pcap")).toBeInTheDocument();
+    expect(screen.getByText("TCP")).toBeInTheDocument();
+    expect(
+      screen.getByText("Multi-port probing · analysis #90"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/risk 62\.00 \(high\)/)).toBeInTheDocument();
+    expect(getDashboardOverview).toHaveBeenCalledOnce();
+    fireEvent.click(
+      screen.getByRole("button", { name: /synthetic-overview\.pcap/ }),
+    );
+    expect(await screen.findByText("Analysis #90")).toBeInTheDocument();
+  });
+
+  it("shows overview load failures and paginates older analysis history", async () => {
+    vi.mocked(getDashboardOverview).mockRejectedValueOnce(
+      new Error("Overview service unavailable."),
+    );
+    vi.mocked(getAnalysisHistory)
+      .mockResolvedValueOnce({
+        items: [historyAnalysis(analysis(1))],
+        total: 101,
+        offset: 0,
+        limit: 25,
+      })
+      .mockResolvedValueOnce({
+        items: [historyAnalysis(analysis(101))],
+        total: 101,
+        offset: 25,
+        limit: 25,
+      });
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Overview service unavailable.",
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Next history" }),
+    );
+    await waitFor(() =>
+      expect(getAnalysisHistory).toHaveBeenLastCalledWith(25, 25),
+    );
+    expect(
+      await screen.findByText("synthetic.pcap", { selector: "span" }),
+    ).toBeInTheDocument();
+  });
+
   it("shows the API state and an honest empty state", async () => {
     render(<App />);
 
-    expect(await screen.findByText("API online")).toBeInTheDocument();
+    expect(
+      await screen.findByText("API and database ready"),
+    ).toBeInTheDocument();
     expect(
       await screen.findByText("No captures have been analyzed yet."),
     ).toBeInTheDocument();
@@ -762,6 +891,27 @@ function analysis(id: number): Analysis {
   };
 }
 
+function historyAnalysis(item: Analysis): OverviewAnalysis {
+  return {
+    id: item.id,
+    original_filename: item.original_filename,
+    file_size_bytes: item.file_size_bytes,
+    capture_format: item.capture_format,
+    status: item.status,
+    packet_count: item.packet_count,
+    flow_count: null,
+    flow_generation_status: item.flow_generation_status,
+    created_at: item.created_at,
+    detection_status: "not_started",
+    finding_count: 0,
+    ml_status: "not_started",
+    anomaly_count: 0,
+    hybrid_status: "not_started",
+    risk_score: null,
+    severity: null,
+  };
+}
+
 function packet(index: number): Packet {
   return {
     id: index,
@@ -946,5 +1096,33 @@ function anomalyPage(
     limit: 25,
     model_id: items[0]?.model_id ?? 1,
     model_version: items[0]?.model_version ?? "synthetic-model-version",
+  };
+}
+
+function dashboardOverview(
+  overrides: Partial<DashboardOverview> = {},
+): DashboardOverview {
+  return {
+    analysis_count: 0,
+    completed_analysis_count: 0,
+    packet_count: 0,
+    flow_count: 0,
+    rule_finding_count: 0,
+    high_priority_finding_count: 0,
+    rule_analysis_count: 0,
+    ml_anomaly_count: 0,
+    ml_analysis_count: 0,
+    hybrid_assessment_count: 0,
+    severity_counts: {
+      informational: 0,
+      low: 0,
+      medium: 0,
+      high: 0,
+      critical: 0,
+    },
+    protocol_distribution: [],
+    recent_analyses: [],
+    recent_high_priority_findings: [],
+    ...overrides,
   };
 }

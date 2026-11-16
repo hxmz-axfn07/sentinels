@@ -26,9 +26,14 @@ const STAGES: { id: PipelineStageName; label: string }[] = [
 type Props = {
   analysis: Analysis | null;
   detectionSummary: DetectionSummary | null;
+  onResultsChanged?: () => void;
 };
 
-export default function PipelinePanel({ analysis, detectionSummary }: Props) {
+export default function PipelinePanel({
+  analysis,
+  detectionSummary,
+  onResultsChanged,
+}: Props) {
   const [stages, setStages] = useState<PipelineStageName[]>([
     "flows",
     "detection",
@@ -167,6 +172,7 @@ export default function PipelinePanel({ analysis, detectionSummary }: Props) {
         status: result.status,
         latest_run: result,
       });
+      onResultsChanged?.();
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {

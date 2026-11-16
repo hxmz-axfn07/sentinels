@@ -1,6 +1,6 @@
 # SENTINEL
 
-SENTINEL is a defensive network intrusion detection system. Through Day 5, it supports secure offline PCAP/PCAPNG ingestion, packet metadata extraction, synchronous bidirectional flow generation, configurable rule-based findings, and versioned Isolation Forest anomaly models. Rule and ML outputs are indicators, not proof of malicious activity.
+SENTINEL is a defensive network intrusion detection system for authorized offline PCAP/PCAPNG analysis. It supports packet metadata extraction, bidirectional flows, configurable rule findings, versioned Isolation Forest anomaly models, hybrid risk assessments, and explicit pipeline orchestration. Findings and risk scores support investigation; they are not proof of malicious activity.
 
 ## Requirements
 
@@ -43,7 +43,11 @@ SENTINEL is a defensive network intrusion detection system. Through Day 5, it su
    cd frontend && npm run dev -- --host 127.0.0.1 --port 5174
    ```
 
-The dashboard is available at <http://localhost:5174>, the API at <http://localhost:8001>, and OpenAPI documentation at <http://localhost:8001/docs>. The MySQL container is exposed on `127.0.0.1:3307`. `docker compose down` stops only this project's database container; its named volume remains. Use `docker compose down -v` only when intentionally deleting the local database data.
+The dashboard is available at <http://localhost:5174>, the API at <http://localhost:8001>, and OpenAPI documentation at <http://localhost:8001/docs>. The MySQL container is exposed only on `127.0.0.1:3307`. Stop the foreground API and frontend with Ctrl+C in their respective terminals; `docker compose stop db` stops only SENTINEL's database container and preserves its volume. `docker compose down` also removes that container but preserves the named volume. Do not use `docker compose down -v` unless intentionally deleting the database data.
+
+## Dashboard and overview
+
+The overview at `GET /api/v1/dashboard/overview` is backed by persisted records and summarizes all stored analyses. Packet and flow totals include only completed processing stages. Rule counts use each analysis's latest completed rule run; ML counts use the latest persisted inference model per analysis; hybrid severity counts use the latest assessment per analysis to avoid double counting historical reruns. Coverage is displayed so absent rules or inference results are not mistaken for zero findings. Protocol distribution is a historical aggregate of generated flows, not live traffic. `GET /api/v1/dashboard/analyses?offset=0&limit=25` returns paginated analysis history with latest per-analysis stage status and results using batched queries. The UI links the overview, upload, history, packet, flow, rule, ML, hybrid, and pipeline sections.
 
 ## Checks
 

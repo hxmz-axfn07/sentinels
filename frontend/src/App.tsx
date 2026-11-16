@@ -22,6 +22,12 @@ import { generateFlows, getFlows, type FlowList } from "./api/flows";
 import MlAnalysisPanel from "./components/MlAnalysisPanel";
 import HybridAnalysisPanel from "./components/HybridAnalysisPanel";
 import PipelinePanel from "./components/PipelinePanel";
+import {
+  getAnalysisHistory,
+  getDashboardOverview,
+  type DashboardOverview,
+  type OverviewAnalysis,
+} from "./api/dashboard";
 
 const PACKET_PAGE_SIZE = 50;
 const FLOW_PAGE_SIZE = 50;
@@ -31,6 +37,11 @@ type ServiceStatus = "checking" | "online" | "offline";
 export default function App() {
   const [serviceStatus, setServiceStatus] = useState<ServiceStatus>("checking");
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
+  const [history, setHistory] = useState<OverviewAnalysis[]>([]);
+  const [analysisTotal, setAnalysisTotal] = useState(0);
+  const [historyOffset, setHistoryOffset] = useState(0);
+  const [overview, setOverview] = useState<DashboardOverview | null>(null);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   const [limits, setLimits] = useState<UploadLimits | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedAnalysis, setSelectedAnalysis] = useState<Analysis | null>(
@@ -74,12 +85,57 @@ export default function App() {
       .then((result) => active && setAnalyses(result.items))
       .catch((error: unknown) => {
         if (active) setPageError(errorMessage(error));
+      });
+    getAnalysisHistory()
+      .then((result) => {
+        if (active) {
+          setHistory(result.items);
+          setAnalysisTotal(result.total);
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) setPageError(errorMessage(error));
       })
       .finally(() => active && setLoading(false));
+    getDashboardOverview()
+      .then((result) => active && setOverview(result))
+      .catch((error: unknown) => {
+        if (active) setOverviewError(errorMessage(error));
+      });
     return () => {
       active = false;
     };
   }, []);
+
+  async function refreshOverview(historyPageOffset = historyOffset) {
+    try {
+      const [nextOverview, historyPage] = await Promise.all([
+        getDashboardOverview(),
+        getAnalysisHistory(historyPageOffset),
+      ]);
+      setOverview(nextOverview);
+      setHistory(historyPage.items);
+      setAnalysisTotal(historyPage.total);
+      setOverviewError(null);
+    } catch (error) {
+      setOverviewError(errorMessage(error));
+    }
+  }
+
+  async function loadHistoryPage(nextOffset: number) {
+    setLoading(true);
+    setPageError(null);
+    try {
+      const page = await getAnalysisHistory(nextOffset, 25);
+      setHistory(page.items);
+      setAnalysisTotal(page.total);
+      setHistoryOffset(nextOffset);
+    } catch (error) {
+      setPageError(errorMessage(error));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function selectAnalysis(id: number, pageOffset = 0) {
     setPacketLoading(true);
@@ -143,6 +199,10 @@ export default function App() {
         result,
         ...current.filter((item) => item.id !== result.id),
       ]);
+      setHistoryOffset(0);
+      const historyPage = await getAnalysisHistory();
+      setHistory(historyPage.items);
+      setAnalysisTotal(historyPage.total);
       setSelectedAnalysis(result);
       setOffset(0);
       setFlows(null);
@@ -153,6 +213,7 @@ export default function App() {
       const firstPage = await getPackets(result.id, 0, PACKET_PAGE_SIZE);
       setPackets(firstPage);
       setDetectionSummary(await getDetectionSummary(result.id));
+      await refreshOverview(0);
       if (result.status === "failed") {
         setUploadError(
           result.error_message ?? "The capture could not be processed.",
@@ -187,6 +248,7 @@ export default function App() {
       setFlowOffset(0);
       setFlowLoading(true);
       setFlows(await getFlows(selectedAnalysis.id, 0, FLOW_PAGE_SIZE));
+      await refreshOverview();
     } catch (error) {
       setFlowError(errorMessage(error));
     } finally {
@@ -226,6 +288,7 @@ export default function App() {
       setDetectionSummary(summary);
       setFindings(page);
       setFindingOffset(0);
+      await refreshOverview();
     } catch (error) {
       setDetectionError(errorMessage(error));
     } finally {
@@ -260,9 +323,9 @@ export default function App() {
   }
 
   const statusLabel = {
-    checking: "Checking API",
-    online: "API online",
-    offline: "API unavailable",
+    checking: "Checking services",
+    online: "API and database ready",
+    offline: "Services unavailable",
   }[serviceStatus];
   const tooLarge = Boolean(
     selectedFile && limits && selectedFile.size > limits.max_upload_size_bytes,
@@ -298,7 +361,290 @@ export default function App() {
           </div>
         </header>
 
-        <section className="py-10">
+        <nav
+          aria-label="Main navigation"
+          className="sticky top-0 z-10 -mx-6 mt-4 overflow-x-auto border-b border-line bg-ink/95 px-6 py-3 backdrop-blur sm:-mx-10 sm:px-10"
+        >
+          <ul className="flex min-w-max gap-2 text-xs text-slate-300">
+            {[
+              ["Overview", "overview"],
+              ["Upload", "upload"],
+              ["History", "analysis-history"],
+              ["Packets", "analysis-packets"],
+              ["Flows", "bidirectional-flows"],
+              ["Rules", "rule-findings"],
+              ["ML", "ml-detection"],
+              ["Hybrid risk", "hybrid-risk"],
+              ["Pipeline", "analysis-pipeline"],
+            ].map(([label, target]) => (
+              <li key={target}>
+                <a
+                  className="rounded-md px-3 py-2 hover:bg-panel hover:text-signal focus-visible:outline focus-visible:outline-2 focus-visible:outline-signal"
+                  href={`#${target}`}
+                >
+                  {label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <section id="overview" className="scroll-mt-20 py-8">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-signal">
+                Persisted analysis · all-time
+              </p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+                Security overview
+              </h1>
+              <p className="mt-2 text-sm text-slate-400">
+                Counts reflect completed processing and the latest completed
+                detection, model inference, or hybrid assessment per analysis.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void refreshOverview()}
+              className="rounded-lg border border-line px-3 py-2 text-xs text-slate-300 hover:border-signal/50 hover:text-signal"
+            >
+              Refresh overview
+            </button>
+          </div>
+          {overviewError && (
+            <p className="mt-4 text-sm text-rose-300" role="alert">
+              {overviewError}
+            </p>
+          )}
+          {!overview && !overviewError ? (
+            <p className="mt-6 text-sm text-slate-400" role="status">
+              Loading overview…
+            </p>
+          ) : null}
+          {overview && (
+            <>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <Metric
+                  label="Analyses"
+                  value={overview.analysis_count}
+                  detail={`${overview.completed_analysis_count} completed`}
+                />
+                <Metric
+                  label="Packets processed"
+                  value={overview.packet_count}
+                  detail="Completed capture analyses"
+                />
+                <Metric
+                  label="Bidirectional flows"
+                  value={overview.flow_count}
+                  detail="Generated flows only"
+                />
+                <Metric
+                  label="Latest rule findings"
+                  value={
+                    overview.rule_analysis_count
+                      ? overview.rule_finding_count
+                      : "—"
+                  }
+                  detail={`${overview.rule_analysis_count} analyses with completed rule runs`}
+                />
+                <Metric
+                  label="ML anomalies"
+                  value={
+                    overview.ml_analysis_count ? overview.ml_anomaly_count : "—"
+                  }
+                  detail={`${overview.ml_analysis_count} analyses with inference results`}
+                />
+                <Metric
+                  label="Hybrid assessments"
+                  value={overview.hybrid_assessment_count || "—"}
+                  detail="Latest assessment per analysis"
+                />
+                <Metric
+                  label="High or critical findings"
+                  value={
+                    overview.rule_analysis_count
+                      ? overview.high_priority_finding_count
+                      : "—"
+                  }
+                  detail="From latest completed rule runs"
+                />
+              </div>
+              <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                <div className="rounded-2xl border border-line bg-panel/70 p-5">
+                  <h2 className="text-sm font-semibold">
+                    Hybrid severity distribution
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Latest assessment for each analysis
+                  </p>
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                    {Object.entries(overview.severity_counts).map(
+                      ([severity, count]) => (
+                        <div
+                          key={severity}
+                          className="rounded-lg bg-ink/70 p-3"
+                        >
+                          <p className="text-[10px] uppercase tracking-wide text-slate-500">
+                            {severity}
+                          </p>
+                          <p className="mt-1 text-xl font-semibold">{count}</p>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                  <p className="mt-3 text-xs text-slate-500">
+                    Missing assessments are not represented as normal or safe.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-line bg-panel/70 p-5">
+                  <h2 className="text-sm font-semibold">Flow protocols</h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Persisted flows across completed flow-generation stages
+                  </p>
+                  {overview.protocol_distribution.length ? (
+                    <ul className="mt-4 space-y-3">
+                      {overview.protocol_distribution.map((item) => {
+                        const max = Math.max(
+                          ...overview.protocol_distribution.map(
+                            (row) => row.flow_count,
+                          ),
+                          1,
+                        );
+                        return (
+                          <li key={item.protocol}>
+                            <div className="mb-1 flex justify-between text-xs">
+                              <span>{item.protocol}</span>
+                              <span className="text-slate-400">
+                                {item.flow_count}
+                              </span>
+                            </div>
+                            <div className="h-2 rounded-full bg-ink">
+                              <div
+                                className="h-2 rounded-full bg-signal/80"
+                                style={{
+                                  width: `${(item.flow_count / max) * 100}%`,
+                                }}
+                              />
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="mt-5 text-sm text-slate-500">
+                      No generated flow records are available.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="mt-5 rounded-2xl border border-line bg-panel/70 p-5">
+                <h2 className="text-sm font-semibold">
+                  Recent high-priority rule findings
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  High and critical findings from each analysis's latest
+                  completed rule run.
+                </p>
+                {overview.recent_high_priority_findings.length ? (
+                  <ul className="mt-3 divide-y divide-line">
+                    {overview.recent_high_priority_findings.map((finding) => (
+                      <li key={finding.id}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void selectAnalysis(finding.analysis_id)
+                          }
+                          className="flex w-full flex-wrap items-center justify-between gap-3 py-3 text-left hover:text-signal"
+                        >
+                          <span>
+                            <span className="block text-sm font-medium">
+                              {finding.rule_name} · analysis #
+                              {finding.analysis_id}
+                            </span>
+                            <span className="mt-1 block text-xs text-slate-400">
+                              {finding.explanation}
+                            </span>
+                            <span className="mt-1 block font-mono text-[11px] text-slate-500">
+                              {finding.source_ip ?? "—"} →{" "}
+                              {finding.destination_ip ?? "—"}
+                            </span>
+                          </span>
+                          <span
+                            className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase ${finding.severity === "critical" ? "border-rose-400/30 bg-rose-400/10 text-rose-200" : "border-orange-400/30 bg-orange-400/10 text-orange-200"}`}
+                          >
+                            {finding.severity}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-4 text-sm text-slate-500">
+                    No high or critical findings in the available completed rule
+                    runs.
+                  </p>
+                )}
+              </div>
+              <div className="mt-5 rounded-2xl border border-line bg-panel/70 p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold">Recent analyses</h2>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Open an analysis to inspect its stored results.
+                    </p>
+                  </div>
+                  <a
+                    href="#analysis-history"
+                    className="text-xs text-signal hover:underline"
+                  >
+                    Full history
+                  </a>
+                </div>
+                {overview.recent_analyses.length ? (
+                  <div className="mt-3 divide-y divide-line">
+                    {overview.recent_analyses.map((item) => (
+                      <button
+                        type="button"
+                        key={item.id}
+                        onClick={() => void selectAnalysis(item.id)}
+                        className="flex w-full flex-wrap items-center justify-between gap-3 py-3 text-left hover:text-signal"
+                      >
+                        <span>
+                          <span className="block text-sm font-medium">
+                            {item.original_filename}
+                          </span>
+                          <span className="mt-1 block text-xs text-slate-500">
+                            {item.capture_format.toUpperCase()} ·{" "}
+                            {item.packet_count === null
+                              ? "—"
+                              : item.packet_count}{" "}
+                            packets ·{" "}
+                            {item.flow_count === null ? "—" : item.flow_count}{" "}
+                            flows
+                          </span>
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          Rules {item.detection_status} · ML {item.ml_status} ·
+                          Hybrid {item.hybrid_status}
+                          {item.risk_score === null
+                            ? ""
+                            : ` · risk ${item.risk_score} (${item.severity})`}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm text-slate-500">
+                    No recent analyses are available.
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </section>
+
+        <section id="upload" className="scroll-mt-20 py-10">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-signal">
             Offline capture analysis
           </p>
@@ -384,22 +730,27 @@ export default function App() {
             </form>
           </section>
 
-          <section className="rounded-2xl border border-line bg-panel/70 p-5 sm:p-6">
+          <section
+            id="analysis-history"
+            className="scroll-mt-20 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6"
+          >
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold">Analyses</h2>
               <span className="text-xs text-slate-500">
-                {analyses.length} shown
+                {analysisTotal === 0
+                  ? "0 analyses"
+                  : `${analysisTotal} total · ${historyOffset + 1}–${Math.min(historyOffset + history.length, analysisTotal)} shown`}
               </span>
             </div>
             {loading ? (
               <p className="mt-5 text-sm text-slate-400">Loading analyses…</p>
-            ) : analyses.length === 0 ? (
+            ) : history.length === 0 ? (
               <p className="mt-5 rounded-xl border border-dashed border-line p-6 text-center text-sm text-slate-500">
                 No captures have been analyzed yet.
               </p>
             ) : (
               <ul className="mt-4 divide-y divide-line">
-                {analyses.map((analysis) => (
+                {history.map((analysis) => (
                   <li key={analysis.id}>
                     <button
                       className="flex w-full items-center justify-between gap-4 py-3 text-left hover:text-signal"
@@ -412,7 +763,24 @@ export default function App() {
                         </span>
                         <span className="mt-1 block text-xs text-slate-500">
                           {analysis.capture_format.toUpperCase()} ·{" "}
-                          {analysis.packet_count} packets
+                          {formatBytes(analysis.file_size_bytes)} ·{" "}
+                          {analysis.packet_count ?? "—"} packets ·{" "}
+                          {analysis.flow_count ?? "—"} flows ·{" "}
+                          {new Date(analysis.created_at).toLocaleString()}
+                          <span className="mt-1 block text-[11px] text-slate-500">
+                            Rules {analysis.detection_status}
+                            {analysis.detection_status === "completed"
+                              ? ` (${analysis.finding_count})`
+                              : ""}{" "}
+                            · ML {analysis.ml_status}
+                            {analysis.ml_status === "completed"
+                              ? ` (${analysis.anomaly_count} anomalies)`
+                              : ""}{" "}
+                            · Hybrid {analysis.hybrid_status}
+                            {analysis.risk_score === null
+                              ? ""
+                              : ` (${analysis.risk_score} · ${analysis.severity})`}
+                          </span>
                         </span>
                       </span>
                       <StatusBadge status={analysis.status} />
@@ -420,6 +788,28 @@ export default function App() {
                   </li>
                 ))}
               </ul>
+            )}
+            {analysisTotal > 25 && (
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={historyOffset === 0 || loading}
+                  onClick={() =>
+                    void loadHistoryPage(Math.max(0, historyOffset - 25))
+                  }
+                  className="rounded-md border border-line px-3 py-2 text-xs disabled:opacity-40"
+                >
+                  Previous history
+                </button>
+                <button
+                  type="button"
+                  disabled={historyOffset + 25 >= analysisTotal || loading}
+                  onClick={() => void loadHistoryPage(historyOffset + 25)}
+                  className="rounded-md border border-line px-3 py-2 text-xs disabled:opacity-40"
+                >
+                  Next history
+                </button>
+              </div>
             )}
           </section>
         </div>
@@ -430,6 +820,13 @@ export default function App() {
           </p>
         )}
 
+        {!selectedAnalysis && (
+          <SectionPlaceholder
+            id="analysis-packets"
+            title="Packet metadata"
+            message="Upload a capture or open an analysis from history to inspect its packets."
+          />
+        )}
         {selectedAnalysis && (
           <section
             id="analysis-packets"
@@ -562,6 +959,13 @@ export default function App() {
           </section>
         )}
 
+        {!selectedAnalysis && (
+          <SectionPlaceholder
+            id="bidirectional-flows"
+            title="Bidirectional flows"
+            message="Select an analysis to generate and inspect persisted network flows."
+          />
+        )}
         {selectedAnalysis && (
           <section
             id="bidirectional-flows"
@@ -660,7 +1064,7 @@ export default function App() {
                             {flow.total_bytes}
                           </td>
                           <td className="px-3 py-3 text-right font-mono">
-                            {flow.duration_seconds ?? "—"}
+                            {formatNumber(flow.duration_seconds)}
                           </td>
                         </tr>
                       ))}
@@ -711,6 +1115,13 @@ export default function App() {
           </section>
         )}
 
+        {!selectedAnalysis && (
+          <SectionPlaceholder
+            id="rule-findings"
+            title="Rule detection"
+            message="Select an analysis with generated flows to run and inspect configured detection rules."
+          />
+        )}
         {selectedAnalysis && (
           <section
             id="rule-findings"
@@ -929,21 +1340,73 @@ export default function App() {
           </section>
         )}
 
-        <MlAnalysisPanel analysis={selectedAnalysis} analyses={analyses} />
-        <HybridAnalysisPanel
-          analysis={selectedAnalysis}
-          detectionSummary={detectionSummary}
-        />
-        <PipelinePanel
-          analysis={selectedAnalysis}
-          detectionSummary={detectionSummary}
-        />
+        <div id="ml-detection" className="scroll-mt-20">
+          <MlAnalysisPanel
+            analysis={selectedAnalysis}
+            analyses={analyses}
+            onResultsChanged={refreshOverview}
+          />
+        </div>
+        <div id="hybrid-risk" className="scroll-mt-20">
+          <HybridAnalysisPanel
+            analysis={selectedAnalysis}
+            detectionSummary={detectionSummary}
+            onResultsChanged={refreshOverview}
+          />
+        </div>
+        <div id="analysis-pipeline" className="scroll-mt-20">
+          <PipelinePanel
+            analysis={selectedAnalysis}
+            detectionSummary={detectionSummary}
+            onResultsChanged={refreshOverview}
+          />
+        </div>
 
         <footer className="mt-auto border-t border-line pt-4 text-xs text-slate-600">
           SENTINEL · Authorized network monitoring
         </footer>
       </div>
     </main>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: number | string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-xl border border-line bg-panel/70 p-4">
+      <p className="text-xs text-slate-400">{label}</p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums">
+        {value.toLocaleString()}
+      </p>
+      <p className="mt-1 text-[11px] text-slate-500">{detail}</p>
+    </div>
+  );
+}
+
+function SectionPlaceholder({
+  id,
+  title,
+  message,
+}: {
+  id: string;
+  title: string;
+  message: string;
+}) {
+  return (
+    <section
+      id={id}
+      className="scroll-mt-20 mt-6 rounded-2xl border border-dashed border-line bg-panel/40 p-6"
+    >
+      <h2 className="text-sm font-semibold">{title}</h2>
+      <p className="mt-2 text-sm text-slate-500">{message}</p>
+    </section>
   );
 }
 
@@ -967,6 +1430,14 @@ function endpoint(address: string | null, port: number | null): string {
   if (!address) return "—";
   if (port === null) return address;
   return address.includes(":") ? `[${address}]:${port}` : `${address}:${port}`;
+}
+
+function formatNumber(value: string | null): string {
+  if (value === null) return "—";
+  const number = Number(value);
+  return Number.isFinite(number)
+    ? number.toLocaleString(undefined, { maximumFractionDigits: 6 })
+    : "—";
 }
 
 function severityClass(severity: DetectionSeverity): string {

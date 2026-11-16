@@ -58,8 +58,13 @@ export async function getUploadLimits(): Promise<UploadLimits> {
   return request<UploadLimits>("/api/v1/analyses/limits");
 }
 
-export async function getAnalyses(): Promise<AnalysisList> {
-  return request<AnalysisList>("/api/v1/analyses?limit=100");
+export async function getAnalyses(
+  offset = 0,
+  limit = 100,
+): Promise<AnalysisList> {
+  return request<AnalysisList>(
+    `/api/v1/analyses?offset=${offset}&limit=${limit}`,
+  );
 }
 
 export async function getAnalysis(id: number): Promise<Analysis> {

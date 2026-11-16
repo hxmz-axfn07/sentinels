@@ -18,9 +18,11 @@ const MIN_TRAINING_FLOWS = 20;
 export default function MlAnalysisPanel({
   analysis,
   analyses,
+  onResultsChanged,
 }: {
   analysis: Analysis | null;
   analyses: Analysis[];
+  onResultsChanged?: () => void;
 }) {
   const [models, setModels] = useState<AnomalyModel[]>([]);
   const [modelId, setModelId] = useState<number | null>(null);
@@ -162,6 +164,7 @@ export default function MlAnalysisPanel({
       setSummary(nextSummary);
       setResults(page);
       setOffset(0);
+      onResultsChanged?.();
     } catch (error) {
       setInferenceError(errorMessage(error));
     } finally {
