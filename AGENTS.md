@@ -1080,7 +1080,7 @@ Prioritize the minimum complete application that demonstrates the full detection
 
 ---
 
-## 18. Current Execution State — Day 5 Complete
+## 18. Day 5 Implementation Record — Complete
 
 **Current milestone:** Day 5 — reproducible Isolation Forest anomaly detection over persisted bidirectional flow features.
 
@@ -1129,13 +1129,13 @@ Use backend port 8001, frontend port 5174, and host-accessible MySQL port 3307. 
 
 The Day 5 model artifact format uses joblib serialization. Only application-generated artifacts addressed by generated storage keys are loaded; protect model storage and the database from untrusted writes. Model inference requires the same scikit-learn version recorded during training. Training data is not assumed benign, and anomaly scores are not probabilities.
 
-The development database is at revision `0005_isolation_forest`. The migration adds model metadata and inference-result tables without rewriting revisions 0001–0004. Downgrading revision 0005 deletes model metadata and inference results. It does not delete model files; artifact cleanup is a separate storage operation. Do not run destructive downgrades against the development database.
+At Day 5 completion, the development database was at revision `0005_isolation_forest`. The migration adds model metadata and inference-result tables without rewriting revisions 0001–0004. Downgrading revision 0005 deletes model metadata and inference results. It does not delete model files; artifact cleanup is a separate storage operation. Do not run destructive downgrades against the development database.
 
-The development database is at revision `0004_rule_based_detection`; no analyses, flows, detection runs, or findings remain in it after synthetic API integration cleanup. Downgrading revision 0002 removes Day 2 packet/capture data, revision 0003 removes generated flows and packet assignments, and revision 0004 removes directional flow counts and detection results. These operations are data-destructive; do not downgrade if those records should be retained. Keep private captures out of Git.
+At Day 4 completion, the development database had revision `0004_rule_based_detection`; synthetic rows from Day 4 API integration had been cleaned up. Downgrading revision 0002 removes Day 2 packet/capture data, revision 0003 removes generated flows and packet assignments, and revision 0004 removes directional flow counts and detection results. These operations are data-destructive; do not downgrade if those records should be retained. Keep private captures out of Git.
 
-### Strict scope boundary
+### Day 5 scope boundary at that milestone
 
-Day 6 and later work is not authorized until the user explicitly approves it. Do not implement hybrid scoring, rule/ML correlation, alert correlation, incident management, or live capture as part of Day 5.
+At the Day 5 milestone, Day 6 and later work required explicit user approval. Day 6 has since been explicitly authorized and completed. Day 7 and later work remains unauthorized until the user explicitly approves it.
 
 ### Completion report
 
@@ -1143,7 +1143,21 @@ Report actual files changed, feature schema and preprocessing, Isolation Forest 
 
 ---
 
-## 19. Definition of Project Completion
+## 19. Current Execution State — Day 6 Complete
+
+Day 6 is complete. The implementation started on `main` at Day 5 commit `b84933e82ce7c43e8720160c82398450e9d8866d`. The Day 6 changes are verified and recorded as a milestone commit.
+
+Hybrid assessment consumes the persisted findings from one completed Day 4 run and complete per-flow inference results from one selected Day 5 model version. It does not trigger either source engine. Evidence snapshots retain their source IDs and versions. Correlation is analysis-scoped and groups by canonical unordered endpoint IP pair plus protocol. Exact-flow corroboration requires a shared persisted support-flow reference; endpoint-pair overlap receives no bonus. Missing endpoints remain isolated. There is no invented time-window correlation.
+
+Default rule weights are Low 10, Medium 25, High 45, and Critical 65. Duplicate rule IDs use the highest severity weight and distinct rule IDs combine by noisy-OR. Anomaly scores are normalized using percent rank within the selected analysis/model; ML contribution is `20 + 30 × rank`, using only the maximum contribution per group. Rule and ML components combine by noisy-OR; one 15-point exact-flow bonus applies if independent evidence shares a flow; scores cap at 100. The analysis score is the maximum risk-group score. Severity bands: informational 0, low 1–24, medium 25–49, high 50–74, critical 75–100. Scores are prioritization aids, not attack probabilities.
+
+Alembic revision `0006_hybrid_assessments` is applied to MySQL. Read-only Alembic checks reported no schema drift; Docker Compose configuration validated and the MySQL service was healthy. The backend suite passed 112 tests; frontend tests passed 19 tests. Ruff, ESLint, Prettier, and frontend production build passed. The backend started on port 8001 and returned HTTP 200 from `/health`; Vite served the application on port 5174. The DOCX was regenerated and its archive/XML content validated. Hybrid API tests use synthetic fixtures in isolated SQLite; no synthetic rows were inserted into the development MySQL database. No real-world evaluation or detection metrics are claimed.
+
+Known constraints: hybrid execution is synchronous; source-support samples can be truncated; endpoint correlation is contextual; anomaly rank is model- and analysis-relative; rule weights and thresholds have not been validated on labeled network data. The report and learning documentation describe these limits.
+
+The exact Day 7 starting point is backend pipeline integration using the existing ingestion, flow, rule, ML, and hybrid APIs/services without silently rerunning or retraining prior stages. Day 7 has not started and requires explicit user approval.
+
+## 20. Definition of Project Completion
 
 Sentinel is considered complete only when:
 
@@ -1168,7 +1182,7 @@ Optional live monitoring is not required to satisfy the core completion criteria
 
 ---
 
-## 20. Final Instruction
+## 21. Final Instruction
 
 Treat this file as the authoritative project specification.
 
@@ -1182,4 +1196,4 @@ Do not fabricate functionality, metrics, research, or test results.
 
 Do not silently expand the scope.
 
-**Current authorization: Day 5 only. Wait for explicit user approval before starting Day 6.**
+**Current authorization: Day 6 is complete. Wait for explicit user approval before starting Day 7.**

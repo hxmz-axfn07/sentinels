@@ -2,6 +2,7 @@ from app.models.analysis import Analysis
 from app.models.anomaly import AnomalyModel, AnomalyResult
 from app.models.detection import DetectionFinding, DetectionRun
 from app.models.flow import NetworkFlow
+from app.models.hybrid import HybridAssessment, HybridEvidence, HybridRiskGroup
 from app.models.packet import PacketRecord
 
 __all__ = [
@@ -10,6 +11,9 @@ __all__ = [
     "AnomalyResult",
     "DetectionFinding",
     "DetectionRun",
+    "HybridAssessment",
+    "HybridEvidence",
+    "HybridRiskGroup",
     "NetworkFlow",
     "PacketRecord",
 ]

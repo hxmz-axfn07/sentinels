@@ -20,6 +20,7 @@ import {
 } from "./api/detections";
 import { generateFlows, getFlows, type FlowList } from "./api/flows";
 import MlAnalysisPanel from "./components/MlAnalysisPanel";
+import HybridAnalysisPanel from "./components/HybridAnalysisPanel";
 
 const PACKET_PAGE_SIZE = 50;
 const FLOW_PAGE_SIZE = 50;
@@ -558,7 +559,10 @@ export default function App() {
         )}
 
         {selectedAnalysis && (
-          <section className="mt-6 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6">
+          <section
+            id="bidirectional-flows"
+            className="mt-6 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6"
+          >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold">Bidirectional flows</h2>
@@ -704,7 +708,10 @@ export default function App() {
         )}
 
         {selectedAnalysis && (
-          <section className="mt-6 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6">
+          <section
+            id="rule-findings"
+            className="mt-6 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6"
+          >
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold">Rule-based findings</h2>
@@ -919,6 +926,10 @@ export default function App() {
         )}
 
         <MlAnalysisPanel analysis={selectedAnalysis} analyses={analyses} />
+        <HybridAnalysisPanel
+          analysis={selectedAnalysis}
+          detectionSummary={detectionSummary}
+        />
 
         <footer className="mt-auto border-t border-line pt-4 text-xs text-slate-600">
           SENTINEL · Authorized network monitoring

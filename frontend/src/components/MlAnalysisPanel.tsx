@@ -203,7 +203,10 @@ export default function MlAnalysisPanel({
     modelId !== null;
 
   return (
-    <section className="mt-6 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6">
+    <section
+      id="ml-analysis"
+      className="mt-6 rounded-2xl border border-line bg-panel/70 p-5 sm:p-6"
+    >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-base font-semibold">

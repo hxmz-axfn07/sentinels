@@ -35,7 +35,7 @@ def test_migration_0005_preserves_day4_analysis_and_flow_rows(tmp_path: Path, mo
             {"analysis": analysis_id, "flow": flow_key},
         )
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "0005_isolation_forest")
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT COUNT(*) FROM analyses")) == 1
         assert connection.scalar(text("SELECT COUNT(*) FROM network_flows")) == 1

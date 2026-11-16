@@ -15,6 +15,7 @@ import type {
 } from "./api/detections";
 import type { FlowList, NetworkFlow } from "./api/flows";
 import type { AnomalyModel, AnomalyResultList, AnomalySummary } from "./api/ml";
+import type { HybridSummary } from "./api/hybrid";
 import {
   getAnalyses,
   getAnalysis,
@@ -24,6 +25,12 @@ import {
 } from "./api/analyses";
 import { generateFlows, getFlows } from "./api/flows";
 import { getHealth } from "./api/health";
+import {
+  getHybridEvidence,
+  getHybridGroups,
+  getHybridSummary,
+  runHybridAssessment,
+} from "./api/hybrid";
 import {
   getAnomalyResults,
   getMlSummary,
@@ -47,6 +54,12 @@ vi.mock("./api/analyses", () => ({
 }));
 
 vi.mock("./api/health", () => ({ getHealth: vi.fn() }));
+vi.mock("./api/hybrid", () => ({
+  getHybridEvidence: vi.fn(),
+  getHybridGroups: vi.fn(),
+  getHybridSummary: vi.fn(),
+  runHybridAssessment: vi.fn(),
+}));
 vi.mock("./api/detections", () => ({
   getDetectionSummary: vi.fn(),
   getFindings: vi.fn(),
@@ -69,6 +82,41 @@ afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getHealth).mockResolvedValue({ status: "ok" });
+  vi.mocked(getHybridSummary).mockImplementation(async (analysisId) =>
+    hybridSummary(analysisId),
+  );
+  vi.mocked(getHybridGroups).mockResolvedValue({
+    items: [],
+    total: 0,
+    offset: 0,
+    limit: 10,
+    assessment_id: 1,
+  });
+  vi.mocked(getHybridEvidence).mockResolvedValue({
+    items: [],
+    total: 0,
+    offset: 0,
+    limit: 25,
+    group_id: 1,
+  });
+  vi.mocked(runHybridAssessment).mockResolvedValue({
+    id: 1,
+    analysis_id: 1,
+    detection_run_id: 1,
+    model_id: 1,
+    model_version: "synthetic-model-version",
+    scoring_config_version: "hybrid-v1",
+    scoring_config_hash: "c".repeat(64),
+    scoring_config: {},
+    risk_score: "0.00",
+    severity: "informational",
+    rule_evidence_count: 0,
+    ml_anomaly_count: 0,
+    correlated_evidence_count: 0,
+    risk_group_count: 0,
+    explanation: "Synthetic no-indicator result.",
+    created_at: "2026-11-16T00:00:00Z",
+  });
   vi.mocked(getDetectionSummary).mockResolvedValue(detectionSummary(1));
   vi.mocked(getFindings).mockResolvedValue(findingPage([], 0));
   vi.mocked(runDetection).mockResolvedValue({
@@ -841,6 +889,10 @@ function mlSummary(
     anomaly_count: 0,
     normal_count: 0,
   };
+}
+
+function hybridSummary(analysisId: number): HybridSummary {
+  return { analysis_id: analysisId, status: "not_started", assessment: null };
 }
 
 function anomalyResult(analysisId: number, modelId: number, id = 9) {

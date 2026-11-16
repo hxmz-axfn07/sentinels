@@ -4,6 +4,7 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.services.detection.config import DetectionConfig
+from app.services.hybrid.config import HybridScoringConfig
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
     max_upload_size_bytes: int = 104_857_600
     ml_max_training_samples: int = Field(default=50_000, ge=20, le=1_000_000)
     detection_config: DetectionConfig = Field(default_factory=DetectionConfig)
+    hybrid_scoring_config: HybridScoringConfig = Field(default_factory=HybridScoringConfig)
 
     @field_validator("upload_storage_dir", mode="before")
     @classmethod

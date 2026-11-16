@@ -84,6 +84,7 @@ class DetectionFinding(Base):
         Index("ix_findings_analysis_severity", "analysis_id", "severity"),
         Index("ix_findings_analysis_rule", "analysis_id", "rule_id"),
         Index("ix_findings_run", "run_id"),
+        Index("uq_detection_finding_source", "id", "run_id", "analysis_id", unique=True),
         CheckConstraint(
             "severity IN ('low', 'medium', 'high', 'critical')",
             name="ck_detection_finding_severity",

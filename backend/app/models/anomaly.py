@@ -70,6 +70,14 @@ class AnomalyResult(Base):
         CheckConstraint("prediction IN ('normal', 'anomaly')", name="ck_ml_result_prediction"),
         Index("ix_ml_results_analysis_prediction", "analysis_id", "prediction"),
         Index("ix_ml_results_model_analysis", "model_id", "analysis_id"),
+        Index(
+            "uq_ml_result_source",
+            "id",
+            "analysis_id",
+            "model_id",
+            "model_version",
+            unique=True,
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
