@@ -14,6 +14,7 @@ import type {
   FindingList,
 } from "./api/detections";
 import type { FlowList, NetworkFlow } from "./api/flows";
+import type { AnomalyModel, AnomalyResultList, AnomalySummary } from "./api/ml";
 import {
   getAnalyses,
   getAnalysis,
@@ -23,6 +24,13 @@ import {
 } from "./api/analyses";
 import { generateFlows, getFlows } from "./api/flows";
 import { getHealth } from "./api/health";
+import {
+  getAnomalyResults,
+  getMlSummary,
+  getModels,
+  runInference,
+  trainModel,
+} from "./api/ml";
 import {
   getDetectionSummary,
   getFindings,
@@ -47,6 +55,13 @@ vi.mock("./api/detections", () => ({
 vi.mock("./api/flows", () => ({
   generateFlows: vi.fn(),
   getFlows: vi.fn(),
+}));
+vi.mock("./api/ml", () => ({
+  getAnomalyResults: vi.fn(),
+  getMlSummary: vi.fn(),
+  getModels: vi.fn(),
+  runInference: vi.fn(),
+  trainModel: vi.fn(),
 }));
 
 afterEach(cleanup);
@@ -86,13 +101,33 @@ beforeEach(() => {
     flows_generated_at: "2026-11-15T00:00:00Z",
   });
   vi.mocked(getFlows).mockResolvedValue(flowPage([flow(1)], 1));
+  vi.mocked(getModels).mockResolvedValue({
+    items: [],
+    total: 0,
+    offset: 0,
+    limit: 100,
+  });
+  vi.mocked(getMlSummary).mockImplementation(async (analysisId, modelId) =>
+    mlSummary(analysisId, modelId),
+  );
+  vi.mocked(getAnomalyResults).mockResolvedValue(anomalyPage([], 0));
+  vi.mocked(trainModel).mockResolvedValue(anomalyModel(1));
+  vi.mocked(runInference).mockResolvedValue({
+    analysis_id: 1,
+    model_id: 1,
+    model_version: "synthetic-model-version",
+    result_count: 1,
+    anomaly_count: 1,
+    normal_count: 0,
+    reused: false,
+  });
 });
 
 describe("SENTINEL PCAP analysis", () => {
   it("shows the API state and an honest empty state", async () => {
     render(<App />);
 
-    expect(await screen.findByRole("status")).toHaveTextContent("API online");
+    expect(await screen.findByText("API online")).toBeInTheDocument();
     expect(
       await screen.findByText("No captures have been analyzed yet."),
     ).toBeInTheDocument();
@@ -453,6 +488,196 @@ describe("SENTINEL PCAP analysis", () => {
 
     await act(async () => finishRun?.());
   });
+
+  it("trains a model from selected completed analyses using the API", async () => {
+    const eligible = {
+      ...analysis(31),
+      flow_generation_status: "completed" as const,
+      flow_count: 24,
+    };
+    vi.mocked(getAnalyses).mockResolvedValue({
+      items: [eligible],
+      total: 1,
+      offset: 0,
+      limit: 100,
+    });
+    vi.mocked(trainModel).mockResolvedValue(anomalyModel(4));
+    render(<App />);
+
+    fireEvent.click(await screen.findByLabelText("synthetic.pcap · 24 flows"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Train Isolation Forest" }),
+    );
+
+    await waitFor(() =>
+      expect(trainModel).toHaveBeenCalledWith({
+        analysis_ids: [31],
+        n_estimators: 200,
+        contamination: "auto",
+        max_samples: "auto",
+        random_seed: 42,
+      }),
+    );
+    expect(
+      await screen.findByRole("option", { name: /Model 4/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("runs inference and labels returned anomaly scores as indicators", async () => {
+    const selected = {
+      ...analysis(32),
+      flow_generation_status: "completed" as const,
+      flow_count: 1,
+    };
+    vi.mocked(getAnalyses).mockResolvedValue({
+      items: [selected],
+      total: 1,
+      offset: 0,
+      limit: 100,
+    });
+    vi.mocked(getAnalysis).mockResolvedValue(selected);
+    vi.mocked(getModels).mockResolvedValue({
+      items: [anomalyModel(2)],
+      total: 1,
+      offset: 0,
+      limit: 100,
+    });
+    vi.mocked(getMlSummary)
+      .mockResolvedValueOnce(mlSummary(32, 2))
+      .mockResolvedValueOnce({
+        ...mlSummary(32, 2),
+        status: "completed",
+        result_count: 1,
+        anomaly_count: 1,
+      });
+    vi.mocked(getAnomalyResults).mockResolvedValue(
+      anomalyPage([anomalyResult(32, 2)], 1),
+    );
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /synthetic\.pcap/ }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Run inference" }),
+    );
+
+    expect(await screen.findByText("Anomaly indicator")).toBeInTheDocument();
+    expect(screen.getByText("0.125000")).toBeInTheDocument();
+    expect(runInference).toHaveBeenCalledWith(32, 2);
+  });
+
+  it("filters and paginates real model results", async () => {
+    const selected = {
+      ...analysis(33),
+      flow_generation_status: "completed" as const,
+      flow_count: 26,
+    };
+    vi.mocked(getAnalyses).mockResolvedValue({
+      items: [selected],
+      total: 1,
+      offset: 0,
+      limit: 100,
+    });
+    vi.mocked(getAnalysis).mockResolvedValue(selected);
+    vi.mocked(getModels).mockResolvedValue({
+      items: [anomalyModel(3)],
+      total: 1,
+      offset: 0,
+      limit: 100,
+    });
+    vi.mocked(getMlSummary).mockResolvedValue({
+      ...mlSummary(33, 3),
+      status: "completed",
+      result_count: 26,
+      anomaly_count: 13,
+      normal_count: 13,
+    });
+    vi.mocked(getAnomalyResults)
+      .mockResolvedValueOnce(
+        anomalyPage(
+          Array.from({ length: 25 }, (_, index) =>
+            anomalyResult(33, 3, index + 1),
+          ),
+          26,
+        ),
+      )
+      .mockResolvedValueOnce(anomalyPage([anomalyResult(33, 3, 26)], 26))
+      .mockResolvedValueOnce(anomalyPage([anomalyResult(33, 3, 26)], 13));
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /synthetic\.pcap/ }),
+    );
+    expect(await screen.findByText("1–25 of 26")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next anomalies" }));
+    await waitFor(() =>
+      expect(getAnomalyResults).toHaveBeenLastCalledWith(
+        33,
+        3,
+        25,
+        25,
+        undefined,
+      ),
+    );
+    fireEvent.change(screen.getByLabelText("Filter anomaly results"), {
+      target: { value: "anomaly" },
+    });
+    await waitFor(() =>
+      expect(getAnomalyResults).toHaveBeenLastCalledWith(
+        33,
+        3,
+        0,
+        25,
+        "anomaly",
+      ),
+    );
+  });
+
+  it("shows inference loading and server error states", async () => {
+    const selected = {
+      ...analysis(34),
+      flow_generation_status: "completed" as const,
+      flow_count: 20,
+    };
+    vi.mocked(getAnalyses).mockResolvedValue({
+      items: [selected],
+      total: 1,
+      offset: 0,
+      limit: 100,
+    });
+    vi.mocked(getAnalysis).mockResolvedValue(selected);
+    vi.mocked(getModels).mockResolvedValue({
+      items: [anomalyModel(5)],
+      total: 1,
+      offset: 0,
+      limit: 100,
+    });
+    let rejectInference: ((reason: Error) => void) | undefined;
+    vi.mocked(runInference).mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectInference = reject;
+        }),
+    );
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /synthetic\.pcap/ }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Run inference" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Scoring flows…" }),
+    ).toBeDisabled();
+    await act(async () =>
+      rejectInference?.(new Error("Model storage unavailable.")),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Model storage unavailable.",
+    );
+  });
 });
 
 function analysis(id: number): Analysis {
@@ -575,4 +800,84 @@ function findingPage(
   offset = 0,
 ): FindingList {
   return { items, total, offset, limit: 25, run_id: items[0]?.run_id ?? null };
+}
+
+function anomalyModel(id: number): AnomalyModel {
+  return {
+    id,
+    model_version: `synthetic-model-version-${id}`,
+    algorithm: "IsolationForest",
+    feature_schema_version: "flow-v1",
+    feature_names: ["total_packets"],
+    active_feature_names: ["log1p:total_packets"],
+    preprocessing_config: {},
+    isolation_forest_config: {
+      n_estimators: 200,
+      contamination: "auto",
+      max_samples: "auto",
+    },
+    random_seed: 42,
+    training_analysis_ids: [31],
+    training_sample_count: 24,
+    training_population_count: 24,
+    sklearn_version: "1.9.1",
+    status: "ready",
+    created_at: "2026-11-16T00:00:00Z",
+    trained_at: "2026-11-16T00:00:00Z",
+  };
+}
+
+function mlSummary(
+  analysisId: number,
+  modelId: number | null | undefined,
+): AnomalySummary {
+  return {
+    analysis_id: analysisId,
+    model_id: modelId ?? null,
+    model_version:
+      modelId == null ? null : `synthetic-model-version-${modelId}`,
+    status: "not_started",
+    result_count: 0,
+    anomaly_count: 0,
+    normal_count: 0,
+  };
+}
+
+function anomalyResult(analysisId: number, modelId: number, id = 9) {
+  return {
+    id,
+    model_id: modelId,
+    model_version: `synthetic-model-version-${modelId}`,
+    analysis_id: analysisId,
+    flow_id: "a".repeat(64),
+    prediction: "anomaly" as const,
+    anomaly_score: 0.125,
+    created_at: "2026-11-16T00:00:00Z",
+    flow: {
+      flow_id: "a".repeat(64),
+      protocol_name: "TCP",
+      endpoint_a_ip: "192.0.2.1",
+      endpoint_a_port: 51_500,
+      endpoint_b_ip: "198.51.100.2",
+      endpoint_b_port: 443,
+      total_packets: 14,
+      total_bytes: 780,
+      duration_seconds: "1.25",
+    },
+  };
+}
+
+function anomalyPage(
+  items: AnomalyResultList["items"],
+  total: number,
+  offset = 0,
+): AnomalyResultList {
+  return {
+    items,
+    total,
+    offset,
+    limit: 25,
+    model_id: items[0]?.model_id ?? 1,
+    model_version: items[0]?.model_version ?? "synthetic-model-version",
+  };
 }

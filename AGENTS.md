@@ -1080,9 +1080,9 @@ Prioritize the minimum complete application that demonstrates the full detection
 
 ---
 
-## 18. Current Execution State — Day 4 Complete
+## 18. Current Execution State — Day 5 Complete
 
-**Current milestone:** Day 4 — configurable rule-based detection over persisted bidirectional flows.
+**Current milestone:** Day 5 — reproducible Isolation Forest anomaly detection over persisted bidirectional flow features.
 
 The user is currently developing on Arch Linux (x86_64). The project must remain compatible with macOS ARM64.
 
@@ -1116,15 +1116,30 @@ Use backend port 8001, frontend port 5174, and host-accessible MySQL port 3307. 
 - Versioned, idempotent detection runs with validated config snapshots, structured findings, severity thresholds, and bounded supporting-flow samples.
 - Paginated, filtered finding/summary APIs and the findings UI.
 
+### Implemented Day 5 scope
+
+- Versioned `flow-v1` numeric feature selection with identifier, endpoint, timestamp, and label exclusion.
+- Median imputation with missingness indicators, `log1p` compression, finite/nonnegative validation, and constant transformed-dimension removal.
+- Reproducible Isolation Forest training over explicitly selected completed analyses; deterministic bounded reservoir sampling caps the training population.
+- Application-generated joblib artifacts in private managed storage, with path validation, restrictive permissions where supported, model version metadata, source analysis IDs, configuration, feature order, sample counts, and scikit-learn version.
+- Bounded, synchronous, idempotent inference with per-flow predictions and `-decision_function` anomaly scores persisted by analysis/model/flow.
+- Model training, listing, metadata, inference, result pagination/filtering, and summary APIs; React controls use actual API results.
+- Learning documentation and academic report updates. Only deterministic synthetic validation was performed; no real-world model evaluation or detection metrics are claimed.
+- Verified state for this milestone: backend tests 104 passed; frontend tests 16 passed; Ruff, ESLint, Prettier, production build, Docker Compose validation, MySQL migration/schema check, synthetic MySQL inference, and local backend/frontend startup checks passed.
+
+The Day 5 model artifact format uses joblib serialization. Only application-generated artifacts addressed by generated storage keys are loaded; protect model storage and the database from untrusted writes. Model inference requires the same scikit-learn version recorded during training. Training data is not assumed benign, and anomaly scores are not probabilities.
+
+The development database is at revision `0005_isolation_forest`. The migration adds model metadata and inference-result tables without rewriting revisions 0001–0004. Downgrading revision 0005 deletes model metadata and inference results. It does not delete model files; artifact cleanup is a separate storage operation. Do not run destructive downgrades against the development database.
+
 The development database is at revision `0004_rule_based_detection`; no analyses, flows, detection runs, or findings remain in it after synthetic API integration cleanup. Downgrading revision 0002 removes Day 2 packet/capture data, revision 0003 removes generated flows and packet assignments, and revision 0004 removes directional flow counts and detection results. These operations are data-destructive; do not downgrade if those records should be retained. Keep private captures out of Git.
 
 ### Strict scope boundary
 
-Day 5 and later work is not authorized until the user explicitly approves it. Do not implement Isolation Forest or other ML detection, model training/inference, hybrid scoring, alert correlation, incident management, or live capture as part of Day 4.
+Day 6 and later work is not authorized until the user explicitly approves it. Do not implement hybrid scoring, rule/ML correlation, alert correlation, incident management, or live capture as part of Day 5.
 
 ### Completion report
 
-Report actual files changed, rule definitions and thresholds, severity and evidence behavior, migration status, API/frontend capability, executed test/lint/build/migration/API integration checks, report and DOCX export status, branch/commit/push status, false-positive limitations, and the exact Day 5 starting point. Never claim unexecuted checks.
+Report actual files changed, feature schema and preprocessing, Isolation Forest configuration, training strategy, model persistence/versioning, inference behavior and score interpretation, migration status, API/frontend capability, executed test/lint/build/migration/MySQL integration checks, report and DOCX export status, branch/commit/push status, model/data limitations, and the exact Day 6 starting point. Never claim unexecuted checks.
 
 ---
 
@@ -1167,4 +1182,4 @@ Do not fabricate functionality, metrics, research, or test results.
 
 Do not silently expand the scope.
 
-**Current authorization: Day 4 only. Wait for explicit user approval before starting Day 5.**
+**Current authorization: Day 5 only. Wait for explicit user approval before starting Day 6.**

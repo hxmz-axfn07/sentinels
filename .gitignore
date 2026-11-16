@@ -39,6 +39,8 @@ storage/*
 !storage/pcaps/
 storage/pcaps/*
 !storage/pcaps/.gitkeep
+!storage/models/
+storage/models/*
 
 # Network captures and datasets
 *.pcap

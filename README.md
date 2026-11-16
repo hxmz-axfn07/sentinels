@@ -1,6 +1,6 @@
 # SENTINEL
 
-SENTINEL is a defensive network intrusion detection system. The Day 4 milestone supports secure offline PCAP/PCAPNG ingestion, packet metadata extraction, synchronous bidirectional flow generation, and configurable explainable rule-based findings. Findings are traffic indicators, not proof of malicious activity.
+SENTINEL is a defensive network intrusion detection system. Through Day 5, it supports secure offline PCAP/PCAPNG ingestion, packet metadata extraction, synchronous bidirectional flow generation, configurable rule-based findings, and versioned Isolation Forest anomaly models. Rule and ML outputs are indicators, not proof of malicious activity.
 
 ## Requirements
 
@@ -52,7 +52,10 @@ uv run --project backend pytest backend/tests
 uv run --project backend ruff check backend
 uv run --project backend ruff format --check backend
 cd frontend && npm test -- --run && npm run lint && npm run build
+uv run --project backend python scripts/export_project_report.py
 ```
+
+The Markdown academic report is the master copy; regenerate its Word export after report edits with the final command above.
 
 ## PCAP analysis
 
@@ -81,3 +84,15 @@ The rules identify multi-port probing, high capture-wide SYN-only packet volume,
 SYN-only and SYN+ACK counts are derived directionally from persisted packet flags. Since flag timestamps are not retained per packet in a flow, SYN activity is measured across the entire analysis rather than an invented time window. Connection-attempt findings do not establish successful handshakes. Findings link up to 100 supporting flow samples while preserving the exact support count. See [rule-based detection](docs/learn/rule-based-detection.md) for definitions, thresholds, tuning, and false-positive considerations.
 
 Alembic revision `0004_rule_based_detection` adds directional handshake counts, detection run snapshots, findings, and supporting-flow links. Its downgrade removes findings and detection runs and drops those flow counts; do not downgrade if those results should be retained.
+
+## Isolation Forest anomaly detection
+
+Train an unsupervised model from explicitly selected completed analyses whose flows have been generated. The UI offers analyses containing at least 20 flows; the API requires at least 20 flows across the selected training set. Training is synchronous and creates a new model version each time. The default estimator uses 200 trees, `contamination=auto`, `max_samples=auto`, and random seed 42. These are reproducible starting settings, not validated detection thresholds. `ML_MAX_TRAINING_SAMPLES` limits the training population to 50,000 flows by default; larger datasets use deterministic reservoir sampling with the selected seed.
+
+Models are stored outside the frontend under `MODEL_STORAGE_DIR` (default `storage/models`) and excluded from Git. The database stores feature schema, preprocessing, parameters, source analysis IDs, population/sample counts, scikit-learn version, and model version. Inference runs synchronously over flows in batches and is idempotent for an analysis/model pair. It stores `-decision_function` as the anomaly score: larger values are more unusual under that model, and scores are not probabilities. Existing model artifacts must remain in the managed storage directory and use the exact scikit-learn version recorded at training.
+
+The API provides `POST /api/v1/ml/models/train`, `GET /api/v1/ml/models`, and `GET /api/v1/ml/models/{model_id}`. For completed analyses with generated flows, `POST /api/v1/analyses/{analysis_id}/ml/inference` accepts a model ID. Retrieve summaries at `GET /api/v1/analyses/{analysis_id}/ml/summary`, paginated results at `GET /api/v1/analyses/{analysis_id}/ml/results?model_id={model_id}&offset=0&limit=50`, and individual results with `GET /api/v1/analyses/{analysis_id}/ml/results/{result_id}?model_id={model_id}`. Results can be filtered by `prediction=anomaly` or `prediction=normal`.
+
+The flow-v1 schema excludes identifiers, endpoints, timestamps, and labels. Missing numeric values use training medians and missingness indicators; nonnegative values are log1p transformed and constant transformed dimensions are removed. Full feature ordering, score interpretation, training-data caveats, persistence security, and limitations are documented in [docs/learn/isolation-forest.md](docs/learn/isolation-forest.md).
+
+Alembic revision `0005_isolation_forest` adds model metadata and per-flow inference results. Downgrading removes those rows and is data-destructive. Application-generated model files are stored separately and are not removed by that database downgrade; preserve or remove them deliberately as a separate storage operation.

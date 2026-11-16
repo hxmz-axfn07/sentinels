@@ -19,6 +19,7 @@ import {
   type FindingList,
 } from "./api/detections";
 import { generateFlows, getFlows, type FlowList } from "./api/flows";
+import MlAnalysisPanel from "./components/MlAnalysisPanel";
 
 const PACKET_PAGE_SIZE = 50;
 const FLOW_PAGE_SIZE = 50;
@@ -916,6 +917,8 @@ export default function App() {
             )}
           </section>
         )}
+
+        <MlAnalysisPanel analysis={selectedAnalysis} analyses={analyses} />
 
         <footer className="mt-auto border-t border-line pt-4 text-xs text-slate-600">
           SENTINEL · Authorized network monitoring
