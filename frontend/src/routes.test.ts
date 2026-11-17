@@ -19,6 +19,8 @@ describe("application routes", () => {
     ["/compare", "compare"],
     ["/incidents", "incidents"],
     ["/incidents/12", "incident"],
+    ["/evaluation", "evaluation"],
+    ["/evaluation/12", "evaluation-detail"],
   ] as const)("matches %s to its own page", (path, page) => {
     expect(resolveAppRoute(path).page).toBe(page);
   });
@@ -30,6 +32,7 @@ describe("application routes", () => {
     );
     expect(resolveAppRoute("/missing").page).toBe("not-found");
     expect(resolveAppRoute("/incidents/12").params.incidentId).toBe("12");
-    expect(appRoutes).toHaveLength(16);
+    expect(resolveAppRoute("/evaluation/12").params.evaluationId).toBe("12");
+    expect(appRoutes).toHaveLength(18);
   });
 });

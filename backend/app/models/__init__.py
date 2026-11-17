@@ -1,6 +1,7 @@
 from app.models.analysis import Analysis
 from app.models.anomaly import AnomalyModel, AnomalyResult
 from app.models.detection import DetectionFinding, DetectionRun
+from app.models.evaluation import EvaluationRun
 from app.models.flow import NetworkFlow
 from app.models.hybrid import HybridAssessment, HybridEvidence, HybridRiskGroup
 from app.models.incident import Incident, IncidentEvidence, IncidentHistory, IncidentNote
@@ -13,6 +14,7 @@ __all__ = [
     "AnomalyResult",
     "DetectionFinding",
     "DetectionRun",
+    "EvaluationRun",
     "HybridAssessment",
     "HybridEvidence",
     "HybridRiskGroup",

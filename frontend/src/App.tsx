@@ -31,6 +31,7 @@ import HybridAnalysisPanel from "./components/HybridAnalysisPanel";
 import PipelinePanel from "./components/PipelinePanel";
 import MonitoringAnalytics from "./components/MonitoringAnalytics";
 import IncidentManagement from "./components/IncidentManagement";
+import EvaluationPage from "./components/EvaluationPage";
 import { resolveAppRoute } from "./routes";
 import {
   getAnalysisHistory,
@@ -447,6 +448,7 @@ export function SentinelApplication() {
                 ["Security events", "/events", false],
                 ["Incidents", "/incidents", false],
                 ["Compare", "/compare", true],
+                ["Evaluation", "/evaluation", false],
               ] as const
             ).map(([label, target, end]) => (
               <li key={target}>
@@ -1524,6 +1526,16 @@ export function SentinelApplication() {
             }
             initialEventIds={incidentDraftEventIds}
             onDraftConsumed={() => setIncidentDraftEventIds([])}
+          />
+        )}
+        {(route.page === "evaluation" ||
+          route.page === "evaluation-detail") && (
+          <EvaluationPage
+            evaluationId={
+              route.page === "evaluation-detail"
+                ? route.params.evaluationId
+                : undefined
+            }
           />
         )}
 

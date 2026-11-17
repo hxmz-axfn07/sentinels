@@ -37,12 +37,13 @@ def test_incident_migration_preserves_sources_and_downgrades_additively(
         assert incident_id is not None
         assert connection.scalar(text("SELECT COUNT(*) FROM analyses")) == 1
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0008_incident_investigation"
+            "0009_evaluation_runs"
         )
 
     command.downgrade(config, "0007_pipeline_runs")
     inspector = inspect(engine)
     assert "incidents" not in inspector.get_table_names()
+    assert "evaluation_runs" not in inspector.get_table_names()
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT COUNT(*) FROM analyses")) == 1
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (

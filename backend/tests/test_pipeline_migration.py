@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from alembic.config import Config
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 
 from alembic import command
 from app.core.config import settings
@@ -33,8 +33,9 @@ def test_migration_0007_preserves_analysis_and_prior_stage_tables(
         assert connection.scalar(text("SELECT COUNT(*) FROM anomaly_models")) == 0
         assert connection.scalar(text("SELECT COUNT(*) FROM hybrid_assessments")) == 0
         assert connection.scalar(text("SELECT analysis_id FROM pipeline_runs LIMIT 1")) is None
+        assert "evaluation_runs" in inspect(engine).get_table_names()
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0008_incident_investigation"
+            "0009_evaluation_runs"
         )
         assert analysis_id == connection.scalar(text("SELECT id FROM analyses"))
     engine.dispose()

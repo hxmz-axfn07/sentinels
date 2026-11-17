@@ -17,6 +17,8 @@ export type PageKey =
   | "compare"
   | "incidents"
   | "incident"
+  | "evaluation"
+  | "evaluation-detail"
   | "not-found";
 
 export type AppRoute = {
@@ -69,6 +71,12 @@ export const appRoutes: AppRoute[] = [
     path: "/incidents/:incidentId",
     page: "incident",
     title: "Incident details",
+  },
+  { path: "/evaluation", page: "evaluation", title: "Detection evaluation" },
+  {
+    path: "/evaluation/:evaluationId",
+    page: "evaluation-detail",
+    title: "Evaluation report",
   },
 ];
 

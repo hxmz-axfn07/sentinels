@@ -5,6 +5,7 @@ from app.api.analyses import router as analyses_router
 from app.api.analytics import router as analytics_router
 from app.api.dashboard import router as dashboard_router
 from app.api.detections import router as detections_router
+from app.api.evaluations import router as evaluations_router
 from app.api.events import router as events_router
 from app.api.flows import router as flows_router
 from app.api.health import router as health_router
@@ -28,6 +29,7 @@ app.include_router(health_router)
 app.include_router(dashboard_router)
 app.include_router(analytics_router)
 app.include_router(events_router)
+app.include_router(evaluations_router)
 app.include_router(incidents_router)
 app.include_router(analyses_router)
 app.include_router(flows_router)

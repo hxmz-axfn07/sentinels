@@ -1,0 +1,676 @@
+{
+  "dataset_version": "sentinel-synthetic-flow-v1",
+  "generation_seed": 1101,
+  "generator": "Scapy deterministic packet recipes",
+  "ground_truth_source": "traffic recipe parameters, independent of engine output",
+  "evaluation_unit": "one PCAP capture; test labels apply to the capture as a whole",
+  "training_policy": "benign training captures only; test captures are disjoint",
+  "public_dataset": false,
+  "synthetic": true,
+  "limitations": [
+    "Synthetic traffic is not representative of real-world traffic distributions.",
+    "Capture-level labels do not identify which individual flow is suspicious.",
+    "The benign four-port burst is deliberately close to the default port-scan threshold.",
+    "Repeated SYN tuples use distinct destination ports and therefore also meet the port-scan recipe."
+  ],
+  "samples": [
+    {
+      "sample_id": "train-normal_tcp-01",
+      "split": "train",
+      "traffic_pattern": "normal_tcp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 1,
+        "packet_recipe": "normal_tcp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-normal_tcp-02",
+      "split": "train",
+      "traffic_pattern": "normal_tcp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 2,
+        "packet_recipe": "normal_tcp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-normal_tcp-03",
+      "split": "train",
+      "traffic_pattern": "normal_tcp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 3,
+        "packet_recipe": "normal_tcp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-normal_tcp-04",
+      "split": "train",
+      "traffic_pattern": "normal_tcp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 4,
+        "packet_recipe": "normal_tcp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-normal_tcp-05",
+      "split": "train",
+      "traffic_pattern": "normal_tcp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 5,
+        "packet_recipe": "normal_tcp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-normal_tcp-06",
+      "split": "train",
+      "traffic_pattern": "normal_tcp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 6,
+        "packet_recipe": "normal_tcp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-normal_tcp-07",
+      "split": "train",
+      "traffic_pattern": "normal_tcp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 7,
+        "packet_recipe": "normal_tcp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-normal_tcp-08",
+      "split": "train",
+      "traffic_pattern": "normal_tcp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 8,
+        "packet_recipe": "normal_tcp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-normal_udp-01",
+      "split": "train",
+      "traffic_pattern": "normal_udp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 9,
+        "packet_recipe": "normal_udp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-normal_udp-02",
+      "split": "train",
+      "traffic_pattern": "normal_udp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 10,
+        "packet_recipe": "normal_udp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-normal_udp-03",
+      "split": "train",
+      "traffic_pattern": "normal_udp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 11,
+        "packet_recipe": "normal_udp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-normal_udp-04",
+      "split": "train",
+      "traffic_pattern": "normal_udp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 12,
+        "packet_recipe": "normal_udp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-normal_icmp-01",
+      "split": "train",
+      "traffic_pattern": "normal_icmp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 13,
+        "packet_recipe": "normal_icmp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-normal_icmp-02",
+      "split": "train",
+      "traffic_pattern": "normal_icmp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 14,
+        "packet_recipe": "normal_icmp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-incomplete_metadata-01",
+      "split": "train",
+      "traffic_pattern": "incomplete_metadata",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 15,
+        "packet_recipe": "incomplete_metadata",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "train-incomplete_metadata-02",
+      "split": "train",
+      "traffic_pattern": "incomplete_metadata",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 16,
+        "packet_recipe": "incomplete_metadata",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-normal_tcp-01",
+      "split": "test",
+      "traffic_pattern": "normal_tcp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 17,
+        "packet_recipe": "normal_tcp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-normal_tcp-02",
+      "split": "test",
+      "traffic_pattern": "normal_tcp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 18,
+        "packet_recipe": "normal_tcp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-normal_tcp-03",
+      "split": "test",
+      "traffic_pattern": "normal_tcp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 19,
+        "packet_recipe": "normal_tcp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-normal_tcp-04",
+      "split": "test",
+      "traffic_pattern": "normal_tcp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 20,
+        "packet_recipe": "normal_tcp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-normal_udp-01",
+      "split": "test",
+      "traffic_pattern": "normal_udp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 21,
+        "packet_recipe": "normal_udp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-normal_udp-02",
+      "split": "test",
+      "traffic_pattern": "normal_udp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 22,
+        "packet_recipe": "normal_udp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-normal_udp-03",
+      "split": "test",
+      "traffic_pattern": "normal_udp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 23,
+        "packet_recipe": "normal_udp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-normal_icmp-01",
+      "split": "test",
+      "traffic_pattern": "normal_icmp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 24,
+        "packet_recipe": "normal_icmp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-normal_icmp-02",
+      "split": "test",
+      "traffic_pattern": "normal_icmp",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 25,
+        "packet_recipe": "normal_icmp",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-incomplete_metadata-01",
+      "split": "test",
+      "traffic_pattern": "incomplete_metadata",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 26,
+        "packet_recipe": "incomplete_metadata",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-incomplete_metadata-02",
+      "split": "test",
+      "traffic_pattern": "incomplete_metadata",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 27,
+        "packet_recipe": "incomplete_metadata",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-benign_port_burst-01",
+      "split": "test",
+      "traffic_pattern": "benign_port_burst",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 28,
+        "packet_recipe": "benign_port_burst",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-benign_port_burst-02",
+      "split": "test",
+      "traffic_pattern": "benign_port_burst",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 29,
+        "packet_recipe": "benign_port_burst",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-benign_port_burst-03",
+      "split": "test",
+      "traffic_pattern": "benign_port_burst",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 30,
+        "packet_recipe": "benign_port_burst",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-benign_port_burst-04",
+      "split": "test",
+      "traffic_pattern": "benign_port_burst",
+      "ground_truth": "benign",
+      "expected_rule_ids": [],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 31,
+        "packet_recipe": "benign_port_burst",
+        "expected_rule_ids": [],
+        "label_rationale": "The generator emits benign protocol activity; near-threshold cases remain benign by recipe."
+      }
+    },
+    {
+      "sample_id": "test-port_scan_pattern-01",
+      "split": "test",
+      "traffic_pattern": "port_scan_pattern",
+      "ground_truth": "suspicious",
+      "expected_rule_ids": [
+        "PORT_SCAN"
+      ],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 32,
+        "packet_recipe": "port_scan_pattern",
+        "expected_rule_ids": [
+          "PORT_SCAN"
+        ],
+        "label_rationale": "The generator intentionally emits the named suspicious indicator pattern."
+      }
+    },
+    {
+      "sample_id": "test-port_scan_pattern-02",
+      "split": "test",
+      "traffic_pattern": "port_scan_pattern",
+      "ground_truth": "suspicious",
+      "expected_rule_ids": [
+        "PORT_SCAN"
+      ],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 33,
+        "packet_recipe": "port_scan_pattern",
+        "expected_rule_ids": [
+          "PORT_SCAN"
+        ],
+        "label_rationale": "The generator intentionally emits the named suspicious indicator pattern."
+      }
+    },
+    {
+      "sample_id": "test-port_scan_pattern-03",
+      "split": "test",
+      "traffic_pattern": "port_scan_pattern",
+      "ground_truth": "suspicious",
+      "expected_rule_ids": [
+        "PORT_SCAN"
+      ],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 34,
+        "packet_recipe": "port_scan_pattern",
+        "expected_rule_ids": [
+          "PORT_SCAN"
+        ],
+        "label_rationale": "The generator intentionally emits the named suspicious indicator pattern."
+      }
+    },
+    {
+      "sample_id": "test-port_scan_pattern-04",
+      "split": "test",
+      "traffic_pattern": "port_scan_pattern",
+      "ground_truth": "suspicious",
+      "expected_rule_ids": [
+        "PORT_SCAN"
+      ],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 35,
+        "packet_recipe": "port_scan_pattern",
+        "expected_rule_ids": [
+          "PORT_SCAN"
+        ],
+        "label_rationale": "The generator intentionally emits the named suspicious indicator pattern."
+      }
+    },
+    {
+      "sample_id": "test-syn_heavy_pattern-01",
+      "split": "test",
+      "traffic_pattern": "syn_heavy_pattern",
+      "ground_truth": "suspicious",
+      "expected_rule_ids": [
+        "SYN_FLOOD_LIKE"
+      ],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 36,
+        "packet_recipe": "syn_heavy_pattern",
+        "expected_rule_ids": [
+          "SYN_FLOOD_LIKE"
+        ],
+        "label_rationale": "The generator intentionally emits the named suspicious indicator pattern."
+      }
+    },
+    {
+      "sample_id": "test-syn_heavy_pattern-02",
+      "split": "test",
+      "traffic_pattern": "syn_heavy_pattern",
+      "ground_truth": "suspicious",
+      "expected_rule_ids": [
+        "SYN_FLOOD_LIKE"
+      ],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 37,
+        "packet_recipe": "syn_heavy_pattern",
+        "expected_rule_ids": [
+          "SYN_FLOOD_LIKE"
+        ],
+        "label_rationale": "The generator intentionally emits the named suspicious indicator pattern."
+      }
+    },
+    {
+      "sample_id": "test-syn_heavy_pattern-03",
+      "split": "test",
+      "traffic_pattern": "syn_heavy_pattern",
+      "ground_truth": "suspicious",
+      "expected_rule_ids": [
+        "SYN_FLOOD_LIKE"
+      ],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 38,
+        "packet_recipe": "syn_heavy_pattern",
+        "expected_rule_ids": [
+          "SYN_FLOOD_LIKE"
+        ],
+        "label_rationale": "The generator intentionally emits the named suspicious indicator pattern."
+      }
+    },
+    {
+      "sample_id": "test-syn_heavy_pattern-04",
+      "split": "test",
+      "traffic_pattern": "syn_heavy_pattern",
+      "ground_truth": "suspicious",
+      "expected_rule_ids": [
+        "SYN_FLOOD_LIKE"
+      ],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 39,
+        "packet_recipe": "syn_heavy_pattern",
+        "expected_rule_ids": [
+          "SYN_FLOOD_LIKE"
+        ],
+        "label_rationale": "The generator intentionally emits the named suspicious indicator pattern."
+      }
+    },
+    {
+      "sample_id": "test-repeated_syn_tuples-01",
+      "split": "test",
+      "traffic_pattern": "repeated_syn_tuples",
+      "ground_truth": "suspicious",
+      "expected_rule_ids": [
+        "PORT_SCAN",
+        "EXCESSIVE_CONNECTION_ATTEMPTS"
+      ],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 40,
+        "packet_recipe": "repeated_syn_tuples",
+        "expected_rule_ids": [
+          "PORT_SCAN",
+          "EXCESSIVE_CONNECTION_ATTEMPTS"
+        ],
+        "label_rationale": "The generator intentionally emits the named suspicious indicator pattern."
+      }
+    },
+    {
+      "sample_id": "test-repeated_syn_tuples-02",
+      "split": "test",
+      "traffic_pattern": "repeated_syn_tuples",
+      "ground_truth": "suspicious",
+      "expected_rule_ids": [
+        "PORT_SCAN",
+        "EXCESSIVE_CONNECTION_ATTEMPTS"
+      ],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 41,
+        "packet_recipe": "repeated_syn_tuples",
+        "expected_rule_ids": [
+          "PORT_SCAN",
+          "EXCESSIVE_CONNECTION_ATTEMPTS"
+        ],
+        "label_rationale": "The generator intentionally emits the named suspicious indicator pattern."
+      }
+    },
+    {
+      "sample_id": "test-repeated_syn_tuples-03",
+      "split": "test",
+      "traffic_pattern": "repeated_syn_tuples",
+      "ground_truth": "suspicious",
+      "expected_rule_ids": [
+        "PORT_SCAN",
+        "EXCESSIVE_CONNECTION_ATTEMPTS"
+      ],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 42,
+        "packet_recipe": "repeated_syn_tuples",
+        "expected_rule_ids": [
+          "PORT_SCAN",
+          "EXCESSIVE_CONNECTION_ATTEMPTS"
+        ],
+        "label_rationale": "The generator intentionally emits the named suspicious indicator pattern."
+      }
+    },
+    {
+      "sample_id": "test-repeated_syn_tuples-04",
+      "split": "test",
+      "traffic_pattern": "repeated_syn_tuples",
+      "ground_truth": "suspicious",
+      "expected_rule_ids": [
+        "PORT_SCAN",
+        "EXCESSIVE_CONNECTION_ATTEMPTS"
+      ],
+      "generation_parameters": {
+        "generator_seed": 1101,
+        "recipe_ordinal": 43,
+        "packet_recipe": "repeated_syn_tuples",
+        "expected_rule_ids": [
+          "PORT_SCAN",
+          "EXCESSIVE_CONNECTION_ATTEMPTS"
+        ],
+        "label_rationale": "The generator intentionally emits the named suspicious indicator pattern."
+      }
+    }
+  ]
+}
