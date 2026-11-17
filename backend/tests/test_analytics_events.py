@@ -169,6 +169,42 @@ def test_analytics_validation_and_empty_capture(analytics_client: TestClient) ->
     )
 
 
+def test_event_record_timestamp_boundaries_are_inclusive(analytics_client: TestClient) -> None:
+    _seed(analytics_client)
+    fixed_timestamp = datetime(2026, 11, 16, 12, 30, tzinfo=UTC)
+    db = _session(analytics_client)
+    try:
+        finding = db.query(DetectionFinding).filter_by(id=1).one()
+        finding.created_at = fixed_timestamp
+        db.commit()
+    finally:
+        db.close()
+    event_page = analytics_client.get("/api/v1/events?event_type=rule_finding&limit=1").json()
+    recorded_at = event_page["items"][0]["recorded_at"]
+    exact = analytics_client.get(
+        "/api/v1/events",
+        params={
+            "event_type": "rule_finding",
+            "recorded_after": recorded_at,
+            "recorded_before": recorded_at,
+        },
+    )
+    assert exact.status_code == 200
+    assert exact.json()["total"] == 1
+    assert (
+        analytics_client.get("/api/v1/events", params={"recorded_before": recorded_at}).json()[
+            "total"
+        ]
+        >= 1
+    )
+    assert (
+        analytics_client.get(
+            "/api/v1/events", params={"recorded_after": "2027-01-01T00:00:00+00:00"}
+        ).json()["total"]
+        == 0
+    )
+
+
 def test_comparison_rejects_incomplete_analyses(analytics_client: TestClient) -> None:
     completed_id = _seed(analytics_client)
     db = _session(analytics_client)

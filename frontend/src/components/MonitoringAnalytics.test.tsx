@@ -80,7 +80,7 @@ const traffic = {
     },
   ],
   packet_length_distribution: [{ bucket: "64–127 B", packet_count: 4 }],
-  timeline_bucket_seconds: 1,
+  timeline_bucket_seconds: 0.055,
   timeline: [{ bucket_start_epoch: 100, packet_count: 2, total_bytes: 220 }],
   top_source_endpoints: [
     { address: "192.0.2.10", packet_count: 4, total_bytes: 420 },
@@ -172,6 +172,7 @@ describe("MonitoringAnalytics", () => {
     expect(
       await screen.findByText("Protocol distribution"),
     ).toBeInTheDocument();
+    expect(screen.getByText(/bucket width 55 ms/)).toBeInTheDocument();
     expect(screen.getByText("TCP: 2 · 50.0%")).toBeInTheDocument();
     expect(screen.getByText(/1 packets have no timestamp/)).toBeInTheDocument();
     expect(
@@ -338,6 +339,47 @@ describe("MonitoringAnalytics", () => {
     );
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Synthetic API unavailable.",
+    );
+  });
+
+  it("rejects reversed local event date ranges and accepts equal bounds", async () => {
+    stubResizeObserver();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      void input;
+      return new Response(
+        JSON.stringify({ items: [], total: 0, offset: 0, limit: 20 }),
+        { status: 200 },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <MemoryRouter>
+        <MonitoringAnalytics
+          analyses={analyses}
+          selectedAnalysis={null}
+          onOpenAnalysis={vi.fn()}
+          view="events"
+        />
+      </MemoryRouter>,
+    );
+    const from = screen.getByLabelText("Events recorded from");
+    const through = screen.getByLabelText("Events recorded through");
+    fireEvent.change(from, { target: { value: "2026-11-16T12:00" } });
+    fireEvent.change(through, { target: { value: "2026-11-16T11:00" } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "start date must be earlier",
+    );
+    fireEvent.change(through, { target: { value: "2026-11-16T12:00" } });
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([url]) => {
+          const query = new URL(String(url), "http://localhost").searchParams;
+          return (
+            query.get("recorded_after") === query.get("recorded_before") &&
+            query.has("recorded_after")
+          );
+        }),
+      ).toBe(true),
     );
   });
 });

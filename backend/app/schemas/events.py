@@ -15,9 +15,11 @@ class SecurityEventRead(BaseModel):
     timestamp_label: Literal["finding recorded", "anomaly scored", "assessment created"]
     severity: str | None
     risk_score: str | None
+    anomaly_score: str | None = None
     source_ip: str | None
     destination_ip: str | None
     protocol: str | None
+    context_note: str | None = None
     explanation: str
     rule_id: str | None = None
     model_id: int | None = None

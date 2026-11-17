@@ -14,7 +14,7 @@ Packet lengths are grouped into fixed display ranges: under 64 bytes, 64–127, 
 
 ## Timeline buckets and rates
 
-Packet timestamps are persisted as decimal Unix epoch seconds. The API queries the minimum, maximum and count of non-null packet timestamps, then groups packets in SQL into observed buckets. Bucket width is `max(1 second, ceil(capture span / 60))`, limiting the normal chart to around sixty buckets. Only buckets containing observed packets are returned; no empty intervals or interpolated traffic are fabricated.
+Packet timestamps are persisted as decimal Unix epoch seconds. The API queries the minimum, maximum and count of non-null packet timestamps, then groups packets in SQL into observed buckets. Bucket width adapts to the capture span: 1 second for identical timestamps, approximately span/20 for captures up to one second, at least 50 milliseconds for captures up to ten seconds, 1 second through one minute, and `ceil(span / 60)` for longer captures. Only buckets containing observed packets are returned; no empty intervals or interpolated traffic are fabricated.
 
 When packet timestamps are identical, the duration is zero and all timestamped packets occupy one one-second bucket. If timestamps are absent, the timeline is empty. If only some packet timestamps are available, the API reports how many are missing and excludes them from the timeline. Packet and byte rates are `null` unless all persisted packet records have timestamps and the timestamp span is positive. This avoids presenting partial observations as complete rates.
 

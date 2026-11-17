@@ -33,6 +33,7 @@ export default function MonitoringAnalytics({
   selectedAnalysis,
   onOpenAnalysis,
   onOpenEvent,
+  onCreateIncident,
   view = "all",
   initialEventId,
   selectedAnalysisId: selectedAnalysisIdProp,
@@ -41,6 +42,7 @@ export default function MonitoringAnalytics({
   selectedAnalysis: OverviewAnalysis | null;
   onOpenAnalysis: (id: number) => void;
   onOpenEvent?: (id: string) => void;
+  onCreateIncident?: (eventIds: string[]) => void;
   view?: "all" | "traffic" | "events" | "event" | "compare";
   initialEventId?: string;
   selectedAnalysisId?: number;
@@ -63,6 +65,8 @@ export default function MonitoringAnalytics({
   const [detail, setDetail] = useState<SecurityEventDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
+  const dateRangeError = getDateRangeError(recordedAfter, recordedBefore);
   const [comparisonIds, setComparisonIds] = useState<number[]>([]);
   const [comparison, setComparison] = useState<AnalysisComparison | null>(null);
   const [comparisonLoading, setComparisonLoading] = useState(false);
@@ -95,6 +99,12 @@ export default function MonitoringAnalytics({
 
   useEffect(() => {
     if (view !== "events" && view !== "all") return;
+    if (dateRangeError) {
+      setEvents(null);
+      setEventsError(dateRangeError);
+      setEventsLoading(false);
+      return;
+    }
     let active = true;
     setEventsLoading(true);
     setEventsError(null);
@@ -121,6 +131,7 @@ export default function MonitoringAnalytics({
     protocol,
     recordedAfter,
     recordedBefore,
+    dateRangeError,
     severity,
     view,
   ]);
@@ -143,6 +154,9 @@ export default function MonitoringAnalytics({
     () => analyses.filter((analysis) => analysis.status === "completed"),
     [analyses],
   );
+  const timelineOrigin = traffic?.first_packet_timestamp
+    ? new Date(traffic.first_packet_timestamp).getTime() / 1000
+    : traffic?.timeline[0]?.bucket_start_epoch;
   async function loadComparison() {
     if (comparisonIds.length < 2) return;
     setComparisonLoading(true);
@@ -307,7 +321,7 @@ export default function MonitoringAnalytics({
                 </ChartCard>
                 <ChartCard
                   title="Capture timeline"
-                  note={`Packet timestamps · ${traffic.timeline_bucket_seconds ?? "—"} second bucket width`}
+                  note={`Packet timestamps · bucket width ${formatBucketWidth(traffic.timeline_bucket_seconds)} · ${formatTimeRange(traffic.first_packet_timestamp, traffic.last_packet_timestamp)}`}
                 >
                   {traffic.timeline.length ? (
                     <div
@@ -325,7 +339,7 @@ export default function MonitoringAnalytics({
                             dataKey="bucket_start_epoch"
                             stroke="#94a3b8"
                             tickFormatter={(value: number) =>
-                              new Date(value * 1000).toLocaleTimeString()
+                              formatElapsedTime(value, timelineOrigin)
                             }
                             minTickGap={28}
                           />
@@ -377,16 +391,18 @@ export default function MonitoringAnalytics({
                       generated.
                     </EmptyText>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3">
-                      <Metric
-                        label="Forward"
-                        value={formatBytes(traffic.forward_bytes)}
-                        detail={`${traffic.forward_packets?.toLocaleString()} packets`}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <DirectionalBar
+                        title="Bytes by direction"
+                        forward={traffic.forward_bytes ?? 0}
+                        backward={traffic.backward_bytes ?? 0}
+                        formatter={formatBytes}
                       />
-                      <Metric
-                        label="Backward"
-                        value={formatBytes(traffic.backward_bytes ?? 0)}
-                        detail={`${traffic.backward_packets?.toLocaleString()} packets`}
+                      <DirectionalBar
+                        title="Packets by direction"
+                        forward={traffic.forward_packets ?? 0}
+                        backward={traffic.backward_packets ?? 0}
+                        formatter={(value) => value.toLocaleString()}
                       />
                     </div>
                   )}
@@ -565,6 +581,15 @@ export default function MonitoringAnalytics({
                 >
                   Reset filters
                 </button>
+                {onCreateIncident && selectedEventIds.length > 0 ? (
+                  <button
+                    type="button"
+                    className="rounded-md bg-signal px-3 py-2 text-xs font-semibold text-ink"
+                    onClick={() => onCreateIncident(selectedEventIds)}
+                  >
+                    Create incident from {selectedEventIds.length} selected
+                  </button>
+                ) : null}
               </div>
               {eventsLoading ? (
                 <StateText>Loading security events…</StateText>
@@ -577,12 +602,24 @@ export default function MonitoringAnalytics({
               ) : null}
               {events?.items.length ? (
                 <div className="mt-4 overflow-x-auto rounded-xl border border-line">
-                  <table className="w-full min-w-[850px] text-left text-xs">
+                  <table className="w-full min-w-[1040px] table-fixed text-left text-xs">
+                    <colgroup>
+                      <col className="w-9" />
+                      <col className="w-[12%]" />
+                      <col className="w-[12%]" />
+                      <col className="w-[17%]" />
+                      <col className="w-[20%]" />
+                      <col className="w-[16%]" />
+                      <col className="w-[23%]" />
+                    </colgroup>
                     <thead className="bg-panel text-slate-400">
                       <tr>
+                        <th scope="col" className="px-2 py-3">
+                          <span className="sr-only">Select event</span>
+                        </th>
                         <th className="px-4 py-3">Type</th>
-                        <th className="px-4 py-3">Severity / score</th>
-                        <th className="px-4 py-3">Analysis</th>
+                        <th className="px-3 py-3">Severity / score</th>
+                        <th className="px-3 py-3">Analysis</th>
                         <th className="px-4 py-3">Endpoints</th>
                         <th className="px-4 py-3">Recorded time</th>
                         <th className="px-4 py-3">Explanation</th>
@@ -591,6 +628,22 @@ export default function MonitoringAnalytics({
                     <tbody className="divide-y divide-line bg-panel/50">
                       {events.items.map((item) => (
                         <tr key={item.event_id} className="text-slate-300">
+                          <td className="px-2 py-3 align-top">
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${eventLabel(item.event_type)} ${item.event_id} for an incident`}
+                              checked={selectedEventIds.includes(item.event_id)}
+                              onChange={(event) =>
+                                setSelectedEventIds((current) =>
+                                  event.currentTarget.checked
+                                    ? [...current, item.event_id]
+                                    : current.filter(
+                                        (id) => id !== item.event_id,
+                                      ),
+                                )
+                              }
+                            />
+                          </td>
                           <td className="px-4 py-3">
                             {eventLabel(item.event_type)}
                             {item.protocol ? (
@@ -601,36 +654,78 @@ export default function MonitoringAnalytics({
                           </td>
                           <td className="px-4 py-3">
                             <Severity severity={item.severity} />
+                            {!item.severity ? (
+                              <span className="mt-1 block text-[10px] leading-4 text-slate-500">
+                                Anomaly score is not a calibrated severity or
+                                attack probability.
+                              </span>
+                            ) : null}
                             {item.risk_score ? (
                               <span className="ml-2 tabular-nums">
                                 {item.risk_score}/100
+                              </span>
+                            ) : null}
+                            {item.anomaly_score ? (
+                              <span className="mt-2 block break-all text-[10px] text-slate-400">
+                                Model score {item.anomaly_score}
                               </span>
                             ) : null}
                           </td>
                           <td className="px-4 py-3">
                             <button
                               type="button"
-                              className="text-left hover:text-signal"
+                              className="block max-w-full break-words text-left hover:text-signal"
                               onClick={() => onOpenAnalysis(item.analysis_id)}
                             >
                               #{item.analysis_id} · {item.original_filename}
                             </button>
                           </td>
-                          <td className="px-4 py-3 font-mono">
-                            {item.source_ip ?? "—"}
-                            <span className="text-slate-600"> → </span>
-                            {item.destination_ip ?? "—"}
+                          <td className="px-4 py-3 align-top font-mono">
+                            {item.source_ip || item.destination_ip ? (
+                              <>
+                                <span className="break-all">
+                                  {item.source_ip ?? "Unknown endpoint"}
+                                </span>
+                                <span className="text-slate-600"> → </span>
+                                <span className="break-all">
+                                  {item.destination_ip ?? "Unknown endpoint"}
+                                </span>
+                                {item.context_note ? (
+                                  <span className="mt-1 block break-words font-sans text-[10px] leading-4 text-amber-300">
+                                    {item.context_note}
+                                  </span>
+                                ) : null}
+                                {item.flow_id ? (
+                                  <Link
+                                    className="mt-1 block break-all font-sans text-[10px] text-signal underline"
+                                    to={`/analyses/${item.analysis_id}/flows`}
+                                  >
+                                    Flow {item.flow_id.slice(0, 12)}…
+                                  </Link>
+                                ) : null}
+                              </>
+                            ) : (
+                              <span className="font-sans text-slate-500">
+                                {item.context_note ??
+                                  "No endpoint or flow context is available."}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3">
-                            <time dateTime={item.recorded_at}>
-                              {new Date(item.recorded_at).toLocaleString()}
+                            <time
+                              dateTime={item.recorded_at}
+                              title={item.recorded_at}
+                            >
+                              {formatTimestamp(item.recorded_at)}
                             </time>
                             <span className="mt-1 block text-slate-500">
                               {item.timestamp_label}
                             </span>
                           </td>
-                          <td className="max-w-sm px-4 py-3">
-                            <p className="line-clamp-2">{item.explanation}</p>
+                          <td className="px-4 py-3 align-top">
+                            <p className="break-words leading-5">
+                              {item.explanation}
+                            </p>
                             <button
                               type="button"
                               className="mt-1 text-signal hover:underline"
@@ -642,6 +737,12 @@ export default function MonitoringAnalytics({
                             >
                               Inspect evidence
                             </button>
+                            {item.event_type === "ml_anomaly" ? (
+                              <span className="mt-1 block break-words text-[10px] text-slate-500">
+                                Flow {item.flow_id ?? "unavailable"} · model{" "}
+                                {item.model_version ?? "version unavailable"}
+                              </span>
+                            ) : null}
                           </td>
                         </tr>
                       ))}
@@ -678,7 +779,7 @@ export default function MonitoringAnalytics({
                   <p className="mt-2 text-xs text-slate-400">
                     Analysis #{detail.event.analysis_id} ·{" "}
                     {detail.event.timestamp_label}:{" "}
-                    {new Date(detail.event.recorded_at).toLocaleString()}
+                    {formatTimestamp(detail.event.recorded_at)}
                   </p>
                 </div>
                 {view !== "event" && (
@@ -711,6 +812,15 @@ export default function MonitoringAnalytics({
                     onClick={() => onOpenAnalysis(detail.event.analysis_id)}
                   >
                     Open analysis #{detail.event.analysis_id}
+                  </button>
+                ) : null}
+                {onCreateIncident ? (
+                  <button
+                    type="button"
+                    className="text-signal underline hover:text-emerald-200"
+                    onClick={() => onCreateIncident([detail.event.event_id])}
+                  >
+                    Create incident from this evidence
                   </button>
                 ) : null}
               </div>
@@ -925,6 +1035,68 @@ function EndpointTable({
   );
 }
 
+function DirectionalBar({
+  title,
+  forward,
+  backward,
+  formatter,
+}: {
+  title: string;
+  forward: number;
+  backward: number;
+  formatter: (value: number) => string;
+}) {
+  const data = [
+    { direction: "Forward", value: forward },
+    { direction: "Backward", value: backward },
+  ];
+  return (
+    <div>
+      <p className="mb-2 text-xs font-medium text-slate-300">{title}</p>
+      <div
+        className="h-28"
+        role="img"
+        aria-label={`${title}: forward ${formatter(forward)}, backward ${formatter(backward)}`}
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 2, right: 12, left: 0, bottom: 2 }}
+          >
+            <CartesianGrid stroke="#25313b" horizontal={false} />
+            <XAxis
+              type="number"
+              stroke="#94a3b8"
+              allowDecimals={false}
+              tickFormatter={formatter}
+            />
+            <YAxis
+              type="category"
+              dataKey="direction"
+              stroke="#94a3b8"
+              width={68}
+            />
+            <Tooltip
+              formatter={(value) => formatter(Number(value))}
+              contentStyle={{
+                background: "#111a22",
+                border: "1px solid #34424d",
+              }}
+            />
+            <Bar
+              dataKey="value"
+              name={title}
+              fill="#34d399"
+              radius={[0, 4, 4, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function FlowTable({
   title,
   rows,
@@ -1028,7 +1200,10 @@ function Pagination({
 function Severity({ severity }: { severity: string | null }) {
   if (!severity)
     return (
-      <span className="rounded border border-line px-2 py-1 text-slate-400">
+      <span
+        className="rounded border border-line px-2 py-1 text-slate-400"
+        title="Anomaly score is not a calibrated severity or attack probability."
+      >
         Unrated
       </span>
     );
@@ -1043,6 +1218,54 @@ function Severity({ severity }: { severity: string | null }) {
       {severity}
     </span>
   );
+}
+
+function getDateRangeError(after: string, before: string): string | null {
+  if (!after || !before) return null;
+  const start = new Date(after).getTime();
+  const end = new Date(before).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end)) {
+    return "Enter valid local date and time values.";
+  }
+  return start > end
+    ? "The start date must be earlier than or equal to the end date."
+    : null;
+}
+
+function formatTimestamp(value: string): string {
+  return new Date(value).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "medium",
+  });
+}
+
+function formatTimeRange(start: string | null, end: string | null): string {
+  if (!start || !end) return "capture time range unavailable";
+  return `${new Date(start).toLocaleTimeString()}–${new Date(end).toLocaleTimeString()}`;
+}
+
+function formatBucketWidth(seconds: number | null): string {
+  if (seconds === null || !Number.isFinite(seconds) || seconds <= 0)
+    return "unavailable";
+  if (seconds < 1) {
+    const milliseconds = seconds * 1000;
+    return `${Number(milliseconds.toFixed(milliseconds < 100 ? 1 : 0))} ms`;
+  }
+  const precision = seconds < 10 ? 2 : 1;
+  const value = Number(seconds.toFixed(precision));
+  return `${value} second${value === 1 ? "" : "s"}`;
+}
+
+function formatElapsedTime(
+  timestamp: number,
+  origin: number | undefined,
+): string {
+  if (origin === undefined || !Number.isFinite(origin)) {
+    return new Date(timestamp * 1000).toLocaleTimeString();
+  }
+  const elapsed = Math.max(0, timestamp - origin);
+  if (elapsed < 1) return `${Math.round(elapsed * 1000)} ms`;
+  return `${Number(elapsed.toFixed(elapsed < 10 ? 1 : 0))} s`;
 }
 
 function StateText({

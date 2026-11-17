@@ -34,7 +34,7 @@ def test_migration_0007_preserves_analysis_and_prior_stage_tables(
         assert connection.scalar(text("SELECT COUNT(*) FROM hybrid_assessments")) == 0
         assert connection.scalar(text("SELECT analysis_id FROM pipeline_runs LIMIT 1")) is None
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "0007_pipeline_runs"
+            "0008_incident_investigation"
         )
         assert analysis_id == connection.scalar(text("SELECT id FROM analyses"))
     engine.dispose()

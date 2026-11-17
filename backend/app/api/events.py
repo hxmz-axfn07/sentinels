@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import String, cast, func, literal, select, union_all
+from sqlalchemy import String, case, cast, func, literal, select, union_all
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -10,7 +10,7 @@ from app.models.analysis import Analysis
 from app.models.anomaly import AnomalyResult
 from app.models.detection import DetectionFinding
 from app.models.flow import NetworkFlow
-from app.models.hybrid import HybridAssessment, HybridEvidence
+from app.models.hybrid import HybridAssessment, HybridEvidence, HybridRiskGroup
 from app.schemas.events import SecurityEventDetail, SecurityEventList, SecurityEventRead
 
 router = APIRouter(prefix="/api/v1/events", tags=["security-events"])
@@ -45,9 +45,11 @@ def list_security_events(
                 literal("finding recorded").label("timestamp_label"),
                 DetectionFinding.severity.label("severity"),
                 literal(None, type_=String).label("risk_score"),
+                literal(None, type_=String).label("anomaly_score"),
                 DetectionFinding.source_ip.label("source_ip"),
                 DetectionFinding.destination_ip.label("destination_ip"),
                 DetectionFinding.protocol_name.label("protocol"),
+                literal(None, type_=String).label("context_note"),
                 DetectionFinding.explanation.label("explanation"),
                 DetectionFinding.rule_id.label("rule_id"),
                 literal(None).label("model_id"),
@@ -66,9 +68,11 @@ def list_security_events(
                 literal("anomaly scored").label("timestamp_label"),
                 literal(None, type_=String).label("severity"),
                 literal(None, type_=String).label("risk_score"),
+                cast(AnomalyResult.anomaly_score, String).label("anomaly_score"),
                 NetworkFlow.first_packet_source_ip.label("source_ip"),
                 NetworkFlow.first_packet_destination_ip.label("destination_ip"),
                 NetworkFlow.protocol_name.label("protocol"),
+                literal(None, type_=String).label("context_note"),
                 literal("Flow marked anomalous relative to the selected model.").label(
                     "explanation"
                 ),
@@ -86,6 +90,26 @@ def list_security_events(
             .where(AnomalyResult.prediction == "anomaly")
         )
     if event_type in (None, "hybrid_assessment"):
+        group_id = (
+            select(HybridRiskGroup.id)
+            .where(HybridRiskGroup.assessment_id == HybridAssessment.id)
+            .order_by(HybridRiskGroup.risk_score.desc(), HybridRiskGroup.id)
+            .limit(1)
+            .correlate(HybridAssessment)
+            .scalar_subquery()
+        )
+        context_flow_id = (
+            select(HybridEvidence.flow_id)
+            .where(
+                HybridEvidence.assessment_id == HybridAssessment.id,
+                HybridEvidence.group_id == group_id,
+                HybridEvidence.flow_id.is_not(None),
+            )
+            .order_by(HybridEvidence.id)
+            .limit(1)
+            .correlate(HybridAssessment)
+            .scalar_subquery()
+        )
         parts.append(
             select(
                 HybridAssessment.id.label("source_id"),
@@ -96,14 +120,31 @@ def list_security_events(
                 literal("assessment created").label("timestamp_label"),
                 HybridAssessment.severity.label("severity"),
                 cast(HybridAssessment.risk_score, String).label("risk_score"),
-                literal(None, type_=String).label("source_ip"),
-                literal(None, type_=String).label("destination_ip"),
-                literal(None, type_=String).label("protocol"),
+                literal(None, type_=String).label("anomaly_score"),
+                select(HybridRiskGroup.endpoint_a_ip)
+                .where(HybridRiskGroup.id == group_id)
+                .scalar_subquery()
+                .label("source_ip"),
+                select(HybridRiskGroup.endpoint_b_ip)
+                .where(HybridRiskGroup.id == group_id)
+                .scalar_subquery()
+                .label("destination_ip"),
+                select(HybridRiskGroup.protocol_name)
+                .where(HybridRiskGroup.id == group_id)
+                .scalar_subquery()
+                .label("protocol"),
+                case(
+                    (
+                        group_id.is_not(None),
+                        "Context from the highest-scoring group; not endpoint attribution.",
+                    ),
+                    else_=None,
+                ).label("context_note"),
                 HybridAssessment.explanation.label("explanation"),
                 literal(None, type_=String).label("rule_id"),
                 HybridAssessment.model_id.label("model_id"),
                 HybridAssessment.model_version.label("model_version"),
-                literal(None, type_=String).label("flow_id"),
+                context_flow_id.label("flow_id"),
             ).join(Analysis, Analysis.id == HybridAssessment.analysis_id)
         )
 
@@ -141,9 +182,11 @@ def list_security_events(
             timestamp_label=row["timestamp_label"],
             severity=row["severity"],
             risk_score=row["risk_score"],
+            anomaly_score=row["anomaly_score"],
             source_ip=row["source_ip"],
             destination_ip=row["destination_ip"],
             protocol=row["protocol"],
+            context_note=row["context_note"],
             explanation=row["explanation"],
             rule_id=row["rule_id"],
             model_id=row["model_id"],
@@ -183,6 +226,7 @@ def get_security_event(
             timestamp_label="finding recorded",
             severity=finding.severity,
             risk_score=None,
+            anomaly_score=None,
             source_ip=finding.source_ip,
             destination_ip=finding.destination_ip,
             protocol=finding.protocol_name,
@@ -218,6 +262,7 @@ def get_security_event(
             timestamp_label="anomaly scored",
             severity=None,
             risk_score=None,
+            anomaly_score=str(result.anomaly_score),
             source_ip=flow.first_packet_source_ip,
             destination_ip=flow.first_packet_destination_ip,
             protocol=flow.protocol_name,
@@ -241,6 +286,12 @@ def get_security_event(
         evidence_rows = db.scalars(
             select(HybridEvidence).where(HybridEvidence.assessment_id == assessment.id)
         ).all()
+        context_group = db.scalar(
+            select(HybridRiskGroup)
+            .where(HybridRiskGroup.assessment_id == assessment.id)
+            .order_by(HybridRiskGroup.risk_score.desc(), HybridRiskGroup.id)
+            .limit(1)
+        )
         evidence = [
             {
                 "source": row.source,
@@ -264,9 +315,15 @@ def get_security_event(
             timestamp_label="assessment created",
             severity=assessment.severity,
             risk_score=str(assessment.risk_score),
-            source_ip=None,
-            destination_ip=None,
-            protocol=None,
+            anomaly_score=None,
+            source_ip=context_group.endpoint_a_ip if context_group else None,
+            destination_ip=context_group.endpoint_b_ip if context_group else None,
+            protocol=context_group.protocol_name if context_group else None,
+            context_note=(
+                "Context from the highest-scoring group; not endpoint attribution."
+                if context_group
+                else "No endpoint context is available for this assessment."
+            ),
             explanation=assessment.explanation,
             model_id=assessment.model_id,
             model_version=assessment.model_version,

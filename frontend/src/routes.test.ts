@@ -17,6 +17,8 @@ describe("application routes", () => {
     ["/events", "events"],
     ["/events/rule_finding%3A5", "event"],
     ["/compare", "compare"],
+    ["/incidents", "incidents"],
+    ["/incidents/12", "incident"],
   ] as const)("matches %s to its own page", (path, page) => {
     expect(resolveAppRoute(path).page).toBe(page);
   });
@@ -27,6 +29,7 @@ describe("application routes", () => {
       "rule_finding:5",
     );
     expect(resolveAppRoute("/missing").page).toBe("not-found");
-    expect(appRoutes).toHaveLength(14);
+    expect(resolveAppRoute("/incidents/12").params.incidentId).toBe("12");
+    expect(appRoutes).toHaveLength(16);
   });
 });

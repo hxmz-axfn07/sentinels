@@ -31,9 +31,13 @@ def upgrade() -> None:
         sa.Column("hybrid_assessment_id", sa.Integer()),
         sa.Column("status", sa.String(16), nullable=False),
         sa.Column("failure_summary", sa.Text()),
-        sa.Column("started_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "started_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.Column("completed_at", sa.DateTime(timezone=True)),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.ForeignKeyConstraint(["analysis_id"], ["analyses.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
             ["model_id", "model_version"],
@@ -51,9 +55,13 @@ def upgrade() -> None:
             ondelete="RESTRICT",
         ),
         sa.UniqueConstraint("id", "analysis_id", name="uq_pipeline_run_analysis"),
-        sa.CheckConstraint("status IN ('running', 'completed', 'failed')", name="ck_pipeline_run_status"),
+        sa.CheckConstraint(
+            "status IN ('running', 'completed', 'failed')", name="ck_pipeline_run_status"
+        ),
     )
-    op.create_index("ix_pipeline_runs_analysis_created", "pipeline_runs", ["analysis_id", "created_at"])
+    op.create_index(
+        "ix_pipeline_runs_analysis_created", "pipeline_runs", ["analysis_id", "created_at"]
+    )
     op.create_index("ix_pipeline_runs_analysis_status", "pipeline_runs", ["analysis_id", "status"])
     op.create_table(
         "pipeline_stage_executions",

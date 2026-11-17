@@ -15,6 +15,8 @@ export type PageKey =
   | "events"
   | "event"
   | "compare"
+  | "incidents"
+  | "incident"
   | "not-found";
 
 export type AppRoute = {
@@ -62,6 +64,12 @@ export const appRoutes: AppRoute[] = [
   { path: "/events", page: "events", title: "Security events" },
   { path: "/events/:eventId", page: "event", title: "Event details" },
   { path: "/compare", page: "compare", title: "Analysis comparison" },
+  { path: "/incidents", page: "incidents", title: "Incidents" },
+  {
+    path: "/incidents/:incidentId",
+    page: "incident",
+    title: "Incident details",
+  },
 ];
 
 const routeObjects: RouteObject[] = [

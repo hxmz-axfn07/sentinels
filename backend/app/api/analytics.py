@@ -79,7 +79,17 @@ def get_traffic_analytics(
     timeline: list[TrafficPoint] = []
     bucket_seconds: float | None = None
     if first_ts is not None and last_ts is not None:
-        bucket_seconds = max(1.0, float(ceil(max(duration or 0.0, 1.0) / 60)))
+        capture_duration = duration or 0.0
+        if capture_duration <= 0:
+            bucket_seconds = 1.0
+        elif capture_duration <= 1.0:
+            bucket_seconds = max(0.001, capture_duration / 20)
+        elif capture_duration <= 10.0:
+            bucket_seconds = max(0.05, capture_duration / 20)
+        elif capture_duration <= 60.0:
+            bucket_seconds = 1.0
+        else:
+            bucket_seconds = float(ceil(capture_duration / 60))
         bucket_index = func.floor((PacketRecord.timestamp - first_ts) / bucket_seconds)
         timeline_rows = db.execute(
             select(

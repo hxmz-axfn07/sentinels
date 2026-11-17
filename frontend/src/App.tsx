@@ -30,6 +30,7 @@ import MlAnalysisPanel from "./components/MlAnalysisPanel";
 import HybridAnalysisPanel from "./components/HybridAnalysisPanel";
 import PipelinePanel from "./components/PipelinePanel";
 import MonitoringAnalytics from "./components/MonitoringAnalytics";
+import IncidentManagement from "./components/IncidentManagement";
 import { resolveAppRoute } from "./routes";
 import {
   getAnalysisHistory,
@@ -104,6 +105,9 @@ export function SentinelApplication() {
   const [findingRule, setFindingRule] = useState("");
   const [findingLoading, setFindingLoading] = useState(false);
   const [detectionRunning, setDetectionRunning] = useState(false);
+  const [incidentDraftEventIds, setIncidentDraftEventIds] = useState<string[]>(
+    [],
+  );
   const [detectionError, setDetectionError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -441,6 +445,7 @@ export function SentinelApplication() {
                 ["Upload", "/upload", true],
                 ["Analyses", "/analyses", false],
                 ["Security events", "/events", false],
+                ["Incidents", "/incidents", false],
                 ["Compare", "/compare", true],
               ] as const
             ).map(([label, target, end]) => (
@@ -533,7 +538,7 @@ export function SentinelApplication() {
                         ? overview.rule_finding_count
                         : "—"
                     }
-                    detail={`${overview.rule_analysis_count} analyses with completed rule runs`}
+                    detail={`${overview.rule_analysis_count} ${overview.rule_analysis_count === 1 ? "analysis" : "analyses"} ${overview.rule_analysis_count === 1 ? "has" : "have"} completed rule runs`}
                   />
                   <Metric
                     label="ML anomalies"
@@ -550,13 +555,13 @@ export function SentinelApplication() {
                     detail="Latest assessment per analysis"
                   />
                   <Metric
-                    label="High or critical findings"
+                    label="High/Critical rule findings"
                     value={
                       overview.rule_analysis_count
                         ? overview.high_priority_finding_count
                         : "—"
                     }
-                    detail="From latest completed rule runs"
+                    detail="Rule output only · latest completed run per analysis"
                   />
                 </div>
                 <div className="mt-5 grid gap-5 lg:grid-cols-2">
@@ -1485,6 +1490,10 @@ export function SentinelApplication() {
             onOpenAnalysis={(id) => navigate(`/analyses/${id}`)}
             view="events"
             onOpenEvent={(id) => navigate(`/events/${encodeURIComponent(id)}`)}
+            onCreateIncident={(ids) => {
+              setIncidentDraftEventIds(ids);
+              navigate("/incidents");
+            }}
           />
         )}
         {route.page === "event" && (
@@ -1494,6 +1503,10 @@ export function SentinelApplication() {
             onOpenAnalysis={(id) => navigate(`/analyses/${id}`)}
             view="event"
             initialEventId={route.params.eventId}
+            onCreateIncident={(ids) => {
+              setIncidentDraftEventIds(ids);
+              navigate("/incidents");
+            }}
           />
         )}
         {route.page === "compare" && (
@@ -1502,6 +1515,15 @@ export function SentinelApplication() {
             selectedAnalysis={null}
             onOpenAnalysis={(id) => navigate(`/analyses/${id}`)}
             view="compare"
+          />
+        )}
+        {(route.page === "incidents" || route.page === "incident") && (
+          <IncidentManagement
+            incidentId={
+              route.page === "incident" ? route.params.incidentId : undefined
+            }
+            initialEventIds={incidentDraftEventIds}
+            onDraftConsumed={() => setIncidentDraftEventIds([])}
           />
         )}
 
@@ -1597,6 +1619,23 @@ function Breadcrumbs({
                 Security events
               </Link>
             </li>
+          </>
+        ) : route.page === "incident" || route.page === "incidents" ? (
+          <>
+            <li aria-hidden="true">/</li>
+            <li>
+              <Link className="hover:text-signal" to="/incidents">
+                Incidents
+              </Link>
+            </li>
+            {route.page === "incident" && (
+              <>
+                <li aria-hidden="true">/</li>
+                <li aria-current="page" className="text-slate-300">
+                  Incident #{route.params.incidentId}
+                </li>
+              </>
+            )}
           </>
         ) : route.page !== "overview" ? (
           <>

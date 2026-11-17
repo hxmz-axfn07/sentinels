@@ -92,9 +92,11 @@ export type SecurityEvent = {
   timestamp_label: string;
   severity: string | null;
   risk_score: string | null;
+  anomaly_score?: string | null;
   source_ip: string | null;
   destination_ip: string | null;
   protocol: string | null;
+  context_note?: string | null;
   explanation: string;
   rule_id: string | null;
   model_id: number | null;
