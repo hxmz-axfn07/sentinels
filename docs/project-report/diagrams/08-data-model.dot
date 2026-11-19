@@ -1,0 +1,50 @@
+digraph data_model {
+  graph [rankdir=TB, bgcolor="transparent", pad="0.16", nodesep="0.20", ranksep="0.35", fontname="Arial", fontsize=12, label="Core persisted entities and relationships", labelloc=t, splines=polyline];
+  node [shape=box, style="rounded,filled", fillcolor="#EAF2F8", color="#31506B", fontname="Arial", fontsize=8.5, margin="0.08,0.05"];
+  edge [color="#168C7B", penwidth=1.0, fontname="Arial", fontsize=7.5, arrowsize=0.6];
+  analyses [label="analyses\nPK id"];
+  packets [label="packet_metadata\nPK id · FK analysis_id"];
+  flows [label="network_flows\nPK id · FK analysis_id"];
+  runs [label="detection_runs\nPK id · FK analysis_id"];
+  findings [label="detection_findings\nPK id · FK run_id + analysis_id"];
+  support [label="detection_finding_flows\ncomposite finding / flow link"];
+  models [label="anomaly_models\nPK id · unique model version"];
+  inference [label="ml_inference_results\nFK analysis + flow + model version"];
+  assessment [label="hybrid_assessments\nFK analysis + selected run + model"];
+  groups [label="hybrid_risk_groups\nFK assessment"];
+  hybrid_evidence [label="hybrid_evidence\nFK group + original evidence"];
+  incidents [label="incidents\nPK id · state + priority"];
+  incident_evidence [label="incident_evidence\nFK incident + analysis + source evidence"];
+  notes [label="incident_notes · FK incident_id"];
+  history [label="incident_history · FK incident_id"];
+  pipeline [label="pipeline_runs\nFK analysis + selected sources"];
+  stages [label="pipeline_stage_executions\nFK run_id · ordered status"];
+  evaluations [label="evaluation_runs\nseparate dataset / result record"];
+
+  analyses -> packets [label="1:N"];
+  analyses -> flows [label="1:N"];
+  analyses -> runs [label="1:N"];
+  runs -> findings [label="1:N"];
+  findings -> support;
+  support -> flows;
+  analyses -> inference [label="1:N"];
+  flows -> inference;
+  models -> inference [label="1:N"];
+  runs -> assessment [label="selected"];
+  models -> assessment [label="selected"];
+  assessment -> groups [label="1:N"];
+  groups -> hybrid_evidence [label="1:N"];
+  incidents -> incident_evidence [label="1:N"];
+  analyses -> incident_evidence [label="scope"];
+  findings -> incident_evidence [style=dashed, label="typed source"];
+  inference -> incident_evidence [style=dashed, label="typed source"];
+  assessment -> incident_evidence [style=dashed, label="typed source"];
+  incidents -> notes [label="1:N"];
+  incidents -> history [label="1:N"];
+  analyses -> pipeline [label="1:N"];
+  pipeline -> stages [label="1:N"];
+
+  {rank=same; packets; flows; runs; models; pipeline; incidents; evaluations;}
+  note [shape=note, fillcolor="#FFF4D6", color="#BD8B27", label="evaluation_runs are isolated from analyses and incidents;\nbenchmark captures and its SQLite workspace are temporary"];
+  evaluations -> note [style=dashed, arrowhead=none, color="#BD8B27"];
+}

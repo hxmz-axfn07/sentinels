@@ -1,0 +1,18 @@
+digraph architecture {
+  graph [rankdir=LR, bgcolor="transparent", pad="0.18", nodesep="0.38", ranksep="0.58", fontname="Arial", fontsize=12, label="SENTINEL application architecture", labelloc=t];
+  node [shape=box, style="rounded,filled", fillcolor="#EAF2F8", color="#31506B", fontname="Arial", fontsize=10, margin="0.12,0.08"];
+  edge [color="#168C7B", penwidth=1.4, fontname="Arial", fontsize=9, arrowsize=0.75];
+  browser [label="Analyst browser\nReact + TypeScript + Vite"];
+  api [label="FastAPI REST API\nvalidation + typed schemas"];
+  services [label="Application services\nPCAP · flows · rules · ML\nhybrid · pipeline · incidents"];
+  mysql [shape=cylinder, label="MySQL 8\nanalyses + evidence + runs"];
+  files [shape=folder, label="Private managed storage\nPCAP files + model artifacts"];
+  eval [label="Evaluation service\nfixed synthetic recipes\ntemporary SQLite + captures"];
+  browser -> api [label="HTTP / JSON"];
+  api -> services;
+  services -> mysql [label="SQLAlchemy"];
+  services -> files [label="generated keys"];
+  api -> eval [label="evaluation API"];
+  eval -> mysql [label="persist run summary"];
+  {rank=same; mysql; files;}
+}

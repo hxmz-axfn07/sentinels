@@ -55,11 +55,14 @@ The overview at `GET /api/v1/dashboard/overview` is backed by persisted records 
 uv run --project backend pytest backend/tests
 uv run --project backend ruff check backend
 uv run --project backend ruff format --check backend
-cd frontend && npm test -- --run && npm run lint && npm run build
+cd frontend && npm test -- --run && npm run lint && npm run format:check && npm run build
+cd ..
+uv run --project backend python scripts/render_report_diagrams.py
 uv run --project backend python scripts/export_project_report.py
+uv run --project backend python scripts/build_presentation.py
 ```
 
-The Markdown academic report is the master copy; regenerate its Word export after report edits with the final command above.
+The Markdown academic report is the master copy. The `python-docx`, `python-pptx`, and Graphviz `dot` tools are development/documentation tools; they do not enter the runtime backend. Regenerate report diagrams before exporting the Word report and presentation.
 
 ## PCAP analysis
 
@@ -100,3 +103,28 @@ The API provides `POST /api/v1/ml/models/train`, `GET /api/v1/ml/models`, and `G
 The flow-v1 schema excludes identifiers, endpoints, timestamps, and labels. Missing numeric values use training medians and missingness indicators; nonnegative values are log1p transformed and constant transformed dimensions are removed. Full feature ordering, score interpretation, training-data caveats, persistence security, and limitations are documented in [docs/learn/isolation-forest.md](docs/learn/isolation-forest.md).
 
 Alembic revision `0005_isolation_forest` adds model metadata and per-flow inference results. Downgrading removes those rows and is data-destructive. Application-generated model files are stored separately and are not removed by that database downgrade; preserve or remove them deliberately as a separate storage operation.
+
+## Evaluation and academic materials
+
+The `/evaluation` page shows persisted runs for the deterministic synthetic benchmark. The checked-in dataset manifest is [`docs/evaluation/dataset/manifest.json`](docs/evaluation/dataset/manifest.json), and the Day 11 persisted run #1 summary used in the final report and slides is [`docs/evaluation/results/run-1-summary.json`](docs/evaluation/results/run-1-summary.json). The dataset is recipe-based and is not representative of real-world traffic; its metrics are not production detection-accuracy claims.
+
+To run the bounded synthetic evaluation, start the database and API, then submit a run (the default is seed 1101 and three repeats; the API allows one to five repeats):
+
+```sh
+curl -X POST http://127.0.0.1:8001/api/v1/evaluations \
+  -H 'Content-Type: application/json' \
+  -d '{"random_seed":1101,"repeat_count":3}'
+```
+
+Evaluation is synchronous. Retrieve persisted runs from `GET /api/v1/evaluations` or inspect them in the browser at `/evaluation`. Generated PCAPs and temporary artifacts are removed when a run ends; the persisted result is separate from operational analyses and incidents.
+
+Project documentation:
+
+- [Final project report (Markdown)](docs/project-report/report.md)
+- [Final project report (Word)](docs/project-report/report.docx)
+- [Project presentation](docs/project-report/SENTINEL-Presentation.pptx)
+- [8–12 minute demonstration script](docs/project-report/demo-script.md)
+- [Viva preparation](docs/project-report/viva-preparation.md)
+- [Security audit and hardening](docs/learn/security-audit-and-quality-hardening.md)
+
+The report, presentation, and demo guide contain visible placeholders for student and institutional details that must be completed before submission. SENTINEL remains an unauthenticated local single-user application; see the security documentation and report for limitations.

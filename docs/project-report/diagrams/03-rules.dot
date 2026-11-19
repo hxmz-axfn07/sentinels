@@ -1,0 +1,18 @@
+digraph rules {
+  graph [rankdir=TB, bgcolor="transparent", pad="0.18", nodesep="0.35", ranksep="0.42", fontname="Arial", fontsize=12, label="Rule detection workflow", labelloc=t];
+  node [shape=box, style="rounded,filled", fillcolor="#EAF2F8", color="#31506B", fontname="Arial", fontsize=10, margin="0.12,0.08"];
+  edge [color="#168C7B", penwidth=1.3, fontname="Arial", fontsize=9, arrowsize=0.7];
+  input [label="Completed analysis\nwith persisted flows"];
+  scan [label="Batch flow query\nconfig snapshot + hash"];
+  ports [label="Multi-port probing\ndistinct destination ports"];
+  syn [label="SYN-heavy capture\ndirectional SYN-only counts"];
+  tuples [label="Repeated SYN-only\nTCP flow tuples"];
+  output [shape=cylinder, label="Detection run + explainable findings\nthreshold, evidence, flow support sample"];
+  input -> scan;
+  scan -> ports;
+  scan -> syn;
+  scan -> tuples;
+  ports -> output;
+  syn -> output;
+  tuples -> output;
+}

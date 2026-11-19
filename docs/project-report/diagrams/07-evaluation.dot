@@ -1,0 +1,18 @@
+digraph evaluation {
+  graph [rankdir=LR, bgcolor="transparent", pad="0.18", nodesep="0.34", ranksep="0.43", fontname="Arial", fontsize=12, label="Reproducible synthetic evaluation workflow", labelloc=t];
+  node [shape=box, style="rounded,filled", fillcolor="#EAF2F8", color="#31506B", fontname="Arial", fontsize=9, margin="0.11,0.07"];
+  edge [color="#168C7B", penwidth=1.3, fontname="Arial", fontsize=8, arrowsize=0.7];
+  recipes [label="Versioned Scapy recipes\nseed 1101 + labels from recipe"];
+  split [label="16 benign training captures\n27 disjoint test captures"];
+  model [label="Train Isolation Forest\ntraining split only"];
+  engines [label="Run rule-only, ML-only,\nhybrid on same test captures"];
+  metrics [label="Capture-level labels\nconfusion + metrics + timing"];
+  persist [shape=cylinder, label="Evaluation run stored separately\nresults JSON + config + provenance"];
+  caution [shape=note, fillcolor="#FFF4D6", color="#BD8B27", label="Synthetic, small, rule-aligned set.\nNot real-world accuracy evidence."];
+  recipes -> split;
+  split -> model [label="train only"];
+  split -> engines [label="test only"];
+  model -> engines;
+  engines -> metrics -> persist;
+  persist -> caution [style=dashed, arrowhead=none, color="#BD8B27"];
+}

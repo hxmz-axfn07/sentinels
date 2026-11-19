@@ -1,0 +1,125 @@
+{
+  "run_id": 1,
+  "status": "completed",
+  "dataset_version": "sentinel-synthetic-flow-v1",
+  "synthetic": true,
+  "public_dataset": false,
+  "generation_seed": 1101,
+  "random_seed": 1101,
+  "repeat_count": 3,
+  "training_captures": 16,
+  "training_flows": 52,
+  "test_captures": 27,
+  "test_benign_captures": 15,
+  "test_suspicious_captures": 12,
+  "test_packets": 306,
+  "test_flows": 128,
+  "test_capture_bytes": 19400,
+  "model": {
+    "algorithm": "IsolationForest",
+    "version": "8658cbcf-78bd-564c-908f-b7c45b6a185f",
+    "feature_schema": "flow-v1",
+    "scikit_learn_version": "1.9.1",
+    "n_estimators": 100,
+    "contamination": 0.1,
+    "max_samples": "auto",
+    "random_state": 1101
+  },
+  "metrics": {
+    "confusion_matrix_order": "[[TN, FP], [FN, TP]]",
+    "rule_only": {
+      "tp": 12,
+      "fp": 0,
+      "tn": 15,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "fpr": 0.0,
+      "confusion_matrix": [[15, 0], [0, 12]]
+    },
+    "ml_only": {
+      "tp": 12,
+      "fp": 4,
+      "tn": 11,
+      "fn": 0,
+      "precision": 0.75,
+      "recall": 1.0,
+      "f1": 0.8571428571428571,
+      "fpr": 0.26666666666666666,
+      "confusion_matrix": [[11, 4], [0, 12]]
+    },
+    "hybrid": {
+      "tp": 12,
+      "fp": 4,
+      "tn": 11,
+      "fn": 0,
+      "precision": 0.75,
+      "recall": 1.0,
+      "f1": 0.8571428571428571,
+      "fpr": 0.26666666666666666,
+      "confusion_matrix": [[11, 4], [0, 12]]
+    },
+    "false_positive_samples": [
+      "test-normal_icmp-01",
+      "test-normal_icmp-02",
+      "test-incomplete_metadata-01",
+      "test-incomplete_metadata-02"
+    ],
+    "doubled_rule_thresholds": {
+      "tp": 4,
+      "fp": 0,
+      "tn": 15,
+      "fn": 8,
+      "precision": 1.0,
+      "recall": 0.3333333333333333,
+      "f1": 0.5,
+      "fpr": 0.0,
+      "confusion_matrix": [[15, 0], [8, 4]]
+    },
+    "ml_score_thresholds": {
+      "greater_than_0.00": {"tp": 12, "fp": 4, "tn": 11, "fn": 0},
+      "greater_than_0.05": {"tp": 8, "fp": 4, "tn": 11, "fn": 4},
+      "greater_than_0.10": {"tp": 0, "fp": 2, "tn": 13, "fn": 12}
+    },
+    "hybrid_severity_distribution": {
+      "informational": 11,
+      "low": 4,
+      "medium": 8,
+      "high": 4,
+      "critical": 0
+    },
+    "hybrid_risk_scores": {
+      "minimum": 0,
+      "median": 20,
+      "p90": 61,
+      "maximum": 61,
+      "is_probability": false
+    }
+  },
+  "performance": {
+    "environment": {
+      "platform": "Linux x86_64",
+      "python_version": "3.12.16",
+      "scikit_learn_version": "1.9.1",
+      "logical_cpus": 4,
+      "processor_model": "not reported"
+    },
+    "repeated_capture_observations": 81,
+    "end_to_end_ms": {"median": 47.64575499939383, "mean": 47.651290752998454},
+    "throughput_packets_per_second": 237.83895785908345,
+    "throughput_flows_per_second": 99.48819152275388,
+    "stage_medians_ms": {
+      "packet_parse_and_metadata": 1.9455620004009688,
+      "flow_generation": 5.315516000337084,
+      "rule_detection": 2.105923000272014,
+      "ml_inference": 19.29296200069075,
+      "hybrid_assessment": 8.346587999767507,
+      "model_training": 120.6332059991837
+    },
+    "process_peak_rss_bytes_before": 212660224,
+    "process_peak_rss_bytes_during": 223637504,
+    "memory_interpretation": "process high-water measurements; not evaluation-only memory"
+  },
+  "scope": "Synthetic capture-level benchmark; temporary generated PCAPs and isolated in-memory SQLite engine workspace; not real-world or production performance evidence."
+}
