@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   BrowserRouter,
   Link,
@@ -29,10 +36,13 @@ import { generateFlows, getFlows, type FlowList } from "./api/flows";
 import MlAnalysisPanel from "./components/MlAnalysisPanel";
 import HybridAnalysisPanel from "./components/HybridAnalysisPanel";
 import PipelinePanel from "./components/PipelinePanel";
-import MonitoringAnalytics from "./components/MonitoringAnalytics";
 import IncidentManagement from "./components/IncidentManagement";
-import EvaluationPage from "./components/EvaluationPage";
 import { resolveAppRoute } from "./routes";
+
+const MonitoringAnalytics = lazy(
+  () => import("./components/MonitoringAnalytics"),
+);
+const EvaluationPage = lazy(() => import("./components/EvaluationPage"));
 import {
   getAnalysisHistory,
   getDashboardOverview,
@@ -769,6 +779,10 @@ export function SentinelApplication() {
                     ? formatBytes(limits.max_upload_size_bytes)
                     : "Loading limit…"}
                 </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Maximum packets per capture:{" "}
+                  {limits ? limits.max_capture_packets.toLocaleString() : "—"}
+                </p>
                 <form className="mt-5 space-y-4" onSubmit={handleUpload}>
                   <label
                     className="block text-sm font-medium text-slate-300"
@@ -1477,47 +1491,57 @@ export function SentinelApplication() {
           </div>
         )}
         {route.page === "analytics" && (
-          <MonitoringAnalytics
-            analyses={history}
-            selectedAnalysis={null}
-            selectedAnalysisId={parsedAnalysisId ?? undefined}
-            onOpenAnalysis={(id) => navigate(`/analyses/${id}/flows`)}
-            view="traffic"
-          />
+          <Suspense fallback={<PageLoading />}>
+            <MonitoringAnalytics
+              analyses={history}
+              selectedAnalysis={null}
+              selectedAnalysisId={parsedAnalysisId ?? undefined}
+              onOpenAnalysis={(id) => navigate(`/analyses/${id}/flows`)}
+              view="traffic"
+            />
+          </Suspense>
         )}
         {route.page === "events" && (
-          <MonitoringAnalytics
-            analyses={history}
-            selectedAnalysis={null}
-            onOpenAnalysis={(id) => navigate(`/analyses/${id}`)}
-            view="events"
-            onOpenEvent={(id) => navigate(`/events/${encodeURIComponent(id)}`)}
-            onCreateIncident={(ids) => {
-              setIncidentDraftEventIds(ids);
-              navigate("/incidents");
-            }}
-          />
+          <Suspense fallback={<PageLoading />}>
+            <MonitoringAnalytics
+              analyses={history}
+              selectedAnalysis={null}
+              onOpenAnalysis={(id) => navigate(`/analyses/${id}`)}
+              view="events"
+              onOpenEvent={(id) =>
+                navigate(`/events/${encodeURIComponent(id)}`)
+              }
+              onCreateIncident={(ids) => {
+                setIncidentDraftEventIds(ids);
+                navigate("/incidents");
+              }}
+            />
+          </Suspense>
         )}
         {route.page === "event" && (
-          <MonitoringAnalytics
-            analyses={history}
-            selectedAnalysis={null}
-            onOpenAnalysis={(id) => navigate(`/analyses/${id}`)}
-            view="event"
-            initialEventId={route.params.eventId}
-            onCreateIncident={(ids) => {
-              setIncidentDraftEventIds(ids);
-              navigate("/incidents");
-            }}
-          />
+          <Suspense fallback={<PageLoading />}>
+            <MonitoringAnalytics
+              analyses={history}
+              selectedAnalysis={null}
+              onOpenAnalysis={(id) => navigate(`/analyses/${id}`)}
+              view="event"
+              initialEventId={route.params.eventId}
+              onCreateIncident={(ids) => {
+                setIncidentDraftEventIds(ids);
+                navigate("/incidents");
+              }}
+            />
+          </Suspense>
         )}
         {route.page === "compare" && (
-          <MonitoringAnalytics
-            analyses={history}
-            selectedAnalysis={null}
-            onOpenAnalysis={(id) => navigate(`/analyses/${id}`)}
-            view="compare"
-          />
+          <Suspense fallback={<PageLoading />}>
+            <MonitoringAnalytics
+              analyses={history}
+              selectedAnalysis={null}
+              onOpenAnalysis={(id) => navigate(`/analyses/${id}`)}
+              view="compare"
+            />
+          </Suspense>
         )}
         {(route.page === "incidents" || route.page === "incident") && (
           <IncidentManagement
@@ -1530,13 +1554,15 @@ export function SentinelApplication() {
         )}
         {(route.page === "evaluation" ||
           route.page === "evaluation-detail") && (
-          <EvaluationPage
-            evaluationId={
-              route.page === "evaluation-detail"
-                ? route.params.evaluationId
-                : undefined
-            }
-          />
+          <Suspense fallback={<PageLoading />}>
+            <EvaluationPage
+              evaluationId={
+                route.page === "evaluation-detail"
+                  ? route.params.evaluationId
+                  : undefined
+              }
+            />
+          </Suspense>
         )}
 
         <footer className="mt-auto border-t border-line pt-4 text-xs text-slate-600">
@@ -1544,6 +1570,14 @@ export function SentinelApplication() {
         </footer>
       </div>
     </main>
+  );
+}
+
+function PageLoading() {
+  return (
+    <p className="py-12 text-center text-sm text-slate-400" role="status">
+      Loading page…
+    </p>
   );
 }
 

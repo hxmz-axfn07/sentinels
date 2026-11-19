@@ -1,7 +1,16 @@
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Boolean, ForeignKey, Index, Integer, Numeric, String
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -13,7 +22,7 @@ if TYPE_CHECKING:
 class PacketRecord(Base):
     __tablename__ = "packet_metadata"
     __table_args__ = (
-        Index("uq_packet_analysis_index", "analysis_id", "packet_index", unique=True),
+        UniqueConstraint("analysis_id", "packet_index", name="uq_packet_analysis_index"),
         Index("ix_packet_analysis_timestamp", "analysis_id", "timestamp", "packet_index"),
         Index(
             "ix_packet_analysis_flow_timestamp",

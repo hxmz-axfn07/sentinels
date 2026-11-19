@@ -12,7 +12,11 @@ from app.models.analysis import Analysis
 from app.models.packet import PacketRecord
 from app.schemas.analysis import AnalysisList, AnalysisRead, PacketList, UploadLimits
 from app.services.analysis import mark_analysis_failed, process_capture
-from app.services.capture_format import CaptureValidationError, inspect_capture
+from app.services.capture_format import (
+    CapturePacketLimitError,
+    CaptureValidationError,
+    inspect_capture,
+)
 from app.services.upload import UploadTooLargeError, stage_upload
 
 logger = logging.getLogger(__name__)
@@ -21,7 +25,10 @@ router = APIRouter(prefix="/api/v1/analyses", tags=["analyses"])
 
 @router.get("/limits", response_model=UploadLimits)
 def upload_limits() -> UploadLimits:
-    return UploadLimits(max_upload_size_bytes=settings.max_upload_size_bytes)
+    return UploadLimits(
+        max_upload_size_bytes=settings.max_upload_size_bytes,
+        max_capture_packets=settings.max_capture_packets,
+    )
 
 
 @router.post("/upload", response_model=AnalysisRead, status_code=201)
@@ -42,7 +49,7 @@ def upload_capture(file: UploadFile, db: Session = Depends(get_db)) -> AnalysisR
                 status_code=422,
                 detail={"code": "empty_file", "message": "The uploaded file is empty."},
             )
-        capture_format = inspect_capture(staging_path)
+        capture_format = inspect_capture(staging_path, settings.max_capture_packets)
         storage_key = f"{uuid.uuid4().hex}{capture_format.suffix}"
         stored_path = settings.upload_storage_dir / storage_key
         staging_path.replace(stored_path)
@@ -72,6 +79,14 @@ def upload_capture(file: UploadFile, db: Session = Depends(get_db)) -> AnalysisR
             detail={
                 "code": "upload_too_large",
                 "message": f"The maximum upload size is {settings.max_upload_size_bytes} bytes.",
+            },
+        ) from None
+    except CapturePacketLimitError:
+        raise HTTPException(
+            status_code=413,
+            detail={
+                "code": CapturePacketLimitError.code,
+                "message": CapturePacketLimitError.message,
             },
         ) from None
     except CaptureValidationError as error:

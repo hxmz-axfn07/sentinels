@@ -12,6 +12,7 @@ class UploadTooLargeError(ValueError):
 
 def stage_upload(source: BinaryIO, storage_dir: Path, max_bytes: int) -> tuple[Path, int]:
     storage_dir.mkdir(parents=True, exist_ok=True)
+    storage_dir.chmod(0o700)
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=".upload-", suffix=".part", dir=storage_dir
     )

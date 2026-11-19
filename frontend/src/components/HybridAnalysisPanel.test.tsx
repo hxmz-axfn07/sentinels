@@ -68,9 +68,15 @@ describe("HybridAnalysisPanel", () => {
     );
 
     await screen.findByRole("option", { name: "Run #5" });
+    await screen.findByRole("option", { name: /Model #9/ });
     fireEvent.change(screen.getByLabelText("Hybrid model"), {
       target: { value: "9" },
     });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Run hybrid assessment" }),
+      ).toBeEnabled(),
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Run hybrid assessment" }),
     );

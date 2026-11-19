@@ -8,6 +8,7 @@ from scapy.utils import PcapWriter, wrpcap, wrpcapng
 
 from app.services.capture_format import (
     CaptureFormat,
+    CapturePacketLimitError,
     CaptureValidationError,
     EmptyCaptureError,
     UnsupportedCaptureError,
@@ -44,6 +45,19 @@ def test_accepts_pcapng_by_content(tmp_path) -> None:
     wrpcapng(str(path), sample_packet())
 
     assert inspect_capture(path) is CaptureFormat.PCAPNG
+
+
+@pytest.mark.parametrize("pcapng", [False, True])
+def test_rejects_capture_over_configured_packet_limit(tmp_path, pcapng: bool) -> None:
+    path = tmp_path / ("bounded.pcapng" if pcapng else "bounded.pcap")
+    packets = [sample_packet(), sample_packet(), sample_packet()]
+    if pcapng:
+        wrpcapng(str(path), packets)
+    else:
+        wrpcap(str(path), packets)
+
+    with pytest.raises(CapturePacketLimitError):
+        inspect_capture(path, max_packets=2)
 
 
 def test_accepts_big_endian_pcapng_section(tmp_path) -> None:

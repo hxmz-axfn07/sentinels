@@ -52,7 +52,10 @@ export type PacketList = {
   limit: number;
 };
 
-export type UploadLimits = { max_upload_size_bytes: number };
+export type UploadLimits = {
+  max_upload_size_bytes: number;
+  max_capture_packets: number;
+};
 
 export async function getUploadLimits(): Promise<UploadLimits> {
   return request<UploadLimits>("/api/v1/analyses/limits");

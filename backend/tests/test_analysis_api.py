@@ -1,3 +1,4 @@
+import stat
 from collections.abc import Generator
 from pathlib import Path
 
@@ -87,6 +88,8 @@ def test_upload_persists_analysis_and_metadata_without_payload(
 
     stored_path = settings.upload_storage_dir / analysis["storage_key"]
     assert stored_path.is_file()
+    assert stat.S_IMODE(settings.upload_storage_dir.stat().st_mode) == 0o700
+    assert stat.S_IMODE(stored_path.stat().st_mode) == 0o600
     assert not list(settings.upload_storage_dir.glob("*.part"))
 
     packets = client.get(f"/api/v1/analyses/{analysis['id']}/packets?limit=10").json()
@@ -163,6 +166,22 @@ def test_rejects_oversized_upload_and_cleans_temporary_file(
     assert response.status_code == 413
     assert response.json()["detail"]["code"] == "upload_too_large"
     assert not list(settings.upload_storage_dir.glob(".upload-*.part"))
+
+
+def test_rejects_capture_over_packet_limit_before_persisting_analysis(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "max_capture_packets", 2)
+
+    response = client.post(
+        "/api/v1/analyses/upload",
+        files={"file": ("too-many.pcap", capture_bytes(tmp_path), "application/octet-stream")},
+    )
+
+    assert response.status_code == 413
+    assert response.json()["detail"]["code"] == "packet_limit_exceeded"
+    assert client.get("/api/v1/analyses").json()["total"] == 0
+    assert not list(settings.upload_storage_dir.glob("*.pcap"))
 
 
 def test_request_limit_stops_large_multipart_bodies_before_file_staging(
@@ -248,4 +267,7 @@ def test_upload_limit_endpoint_reports_server_configuration(client: TestClient) 
     response = client.get("/api/v1/analyses/limits")
 
     assert response.status_code == 200
-    assert response.json() == {"max_upload_size_bytes": 1_000_000}
+    assert response.json() == {
+        "max_upload_size_bytes": 1_000_000,
+        "max_capture_packets": 100_000,
+    }

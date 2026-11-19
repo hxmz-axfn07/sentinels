@@ -60,7 +60,7 @@ def main() -> None:
     _flush_paragraph(document, paragraph_lines)
 
     document.core_properties.title = "SENTINEL Project Report"
-    document.core_properties.subject = "Day 1–10 implementation and verified results"
+    document.core_properties.subject = "Day 1–12 implementation and verified results"
     document.core_properties.keywords = "SENTINEL, NIDS, PCAP, Isolation Forest, hybrid detection"
     document.save(DESTINATION)
 

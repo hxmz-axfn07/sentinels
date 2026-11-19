@@ -28,17 +28,22 @@ class UnsupportedCaptureError(CaptureValidationError):
     message = "The file is not a supported PCAP or PCAPNG capture."
 
 
-def inspect_capture(path: Path) -> CaptureFormat:
+class CapturePacketLimitError(CaptureValidationError):
+    code = "packet_limit_exceeded"
+    message = "The capture exceeds the configured packet-count limit."
+
+
+def inspect_capture(path: Path, max_packets: int | None = None) -> CaptureFormat:
     if path.stat().st_size == 0:
         raise EmptyCaptureError
     with path.open("rb") as capture:
         magic = capture.read(4)
         capture.seek(0)
         if magic in _PCAP_MAGICS:
-            _validate_pcap(capture, magic)
+            _validate_pcap(capture, magic, max_packets)
             return CaptureFormat.PCAP
         if magic == b"\x0a\x0d\x0d\x0a":
-            _validate_pcapng(capture)
+            _validate_pcapng(capture, max_packets)
             return CaptureFormat.PCAPNG
     raise UnsupportedCaptureError
 
@@ -56,7 +61,7 @@ _PCAPNG_BYTE_ORDER = {
 }
 
 
-def _validate_pcap(capture: BinaryIO, magic: bytes) -> None:
+def _validate_pcap(capture: BinaryIO, magic: bytes, max_packets: int | None) -> None:
     endian, timestamp_resolution = _PCAP_MAGICS[magic]
     file_size = capture.seek(0, 2)
     capture.seek(0)
@@ -85,6 +90,8 @@ def _validate_pcap(capture: BinaryIO, magic: bytes) -> None:
             raise CaptureValidationError
         capture.seek(captured_length, 1)
         packet_count += 1
+        if max_packets is not None and packet_count > max_packets:
+            raise CapturePacketLimitError
     if packet_count == 0:
         raise EmptyCaptureError
 
@@ -100,7 +107,7 @@ def _padded(length: int) -> int:
     return (length + 3) & ~3
 
 
-def _validate_pcapng(capture: BinaryIO) -> None:
+def _validate_pcapng(capture: BinaryIO, max_packets: int | None) -> None:
     file_size = capture.seek(0, 2)
     offset = 0
     endian: str | None = None
@@ -162,6 +169,7 @@ def _validate_pcapng(capture: BinaryIO) -> None:
             if block_length < 32 + _padded(captured_length):
                 raise CaptureValidationError
             packet_blocks += 1
+            _validate_packet_count(packet_blocks, max_packets)
         elif block_kind == 3:  # Simple Packet Block
             if block_length < 16 or not interfaces:
                 raise CaptureValidationError
@@ -172,6 +180,7 @@ def _validate_pcapng(capture: BinaryIO) -> None:
             if block_length != 16 + _padded(captured_length):
                 raise CaptureValidationError
             packet_blocks += 1
+            _validate_packet_count(packet_blocks, max_packets)
         elif block_kind == 2:  # Obsolete Packet Block
             if block_length < 32:
                 raise CaptureValidationError
@@ -187,6 +196,7 @@ def _validate_pcapng(capture: BinaryIO) -> None:
             if block_length < 32 + _padded(captured_length):
                 raise CaptureValidationError
             packet_blocks += 1
+            _validate_packet_count(packet_blocks, max_packets)
 
         offset += block_length
 
@@ -194,3 +204,8 @@ def _validate_pcapng(capture: BinaryIO) -> None:
         raise CaptureValidationError
     if packet_blocks == 0:
         raise EmptyCaptureError
+
+
+def _validate_packet_count(packet_count: int, max_packets: int | None) -> None:
+    if max_packets is not None and packet_count > max_packets:
+        raise CapturePacketLimitError

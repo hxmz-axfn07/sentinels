@@ -183,6 +183,7 @@ beforeEach(() => {
   });
   vi.mocked(getUploadLimits).mockResolvedValue({
     max_upload_size_bytes: 1024 * 1024,
+    max_capture_packets: 100_000,
   });
   vi.mocked(getAnalyses).mockResolvedValue({
     items: [],
@@ -301,6 +302,7 @@ describe("SENTINEL PCAP analysis", () => {
     vi.mocked(getSecurityEvent).mockRejectedValueOnce(
       new Error("Security event not found."),
     );
+    await import("./components/MonitoringAnalytics");
     renderAppAt("/events/not-a-valid-event");
     expect(
       await screen.findByText("Security event not found."),
@@ -466,7 +468,10 @@ describe("SENTINEL PCAP analysis", () => {
   });
 
   it("rejects a file over the server-provided size limit before upload", async () => {
-    vi.mocked(getUploadLimits).mockResolvedValue({ max_upload_size_bytes: 4 });
+    vi.mocked(getUploadLimits).mockResolvedValue({
+      max_upload_size_bytes: 4,
+      max_capture_packets: 100_000,
+    });
     renderAppAt("/upload");
     await screen.findByText("Maximum size: 4 B");
 

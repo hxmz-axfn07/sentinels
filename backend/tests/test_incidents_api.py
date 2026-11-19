@@ -162,6 +162,36 @@ def test_incident_references_are_validated_and_transactional(incident_client: Te
     assert incident_client.get("/api/v1/incidents/999").status_code == 404
 
 
+def test_incident_titles_are_trimmed_and_cannot_be_blank(incident_client: TestClient) -> None:
+    created = incident_client.post("/api/v1/incidents", json={"title": "  Review this  "})
+    assert created.status_code == 201
+    assert created.json()["title"] == "Review this"
+
+    blank = incident_client.post("/api/v1/incidents", json={"title": "   "})
+    assert blank.status_code == 422
+    update = incident_client.patch(
+        f"/api/v1/incidents/{created.json()['id']}", json={"title": " \n "}
+    )
+    assert update.status_code == 422
+
+
+def test_cross_origin_state_changing_requests_are_rejected(incident_client: TestClient) -> None:
+    blocked = incident_client.post(
+        "/api/v1/incidents",
+        json={"title": "Blocked synthetic incident"},
+        headers={"Origin": "https://attacker.example"},
+    )
+    assert blocked.status_code == 403
+    assert incident_client.get("/api/v1/incidents/summary").json()["total"] == 0
+
+    allowed = incident_client.post(
+        "/api/v1/incidents",
+        json={"title": "Allowed local incident"},
+        headers={"Origin": "http://localhost:5174"},
+    )
+    assert allowed.status_code == 201
+
+
 def test_invalid_transitions_and_duplicate_relationship_removal(
     incident_client: TestClient,
 ) -> None:

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     upload_storage_dir: Path = PROJECT_ROOT / "storage" / "pcaps"
     model_storage_dir: Path = PROJECT_ROOT / "storage" / "models"
     max_upload_size_bytes: int = 104_857_600
+    max_capture_packets: int = Field(default=100_000, ge=1, le=1_000_000)
     ml_max_training_samples: int = Field(default=50_000, ge=20, le=1_000_000)
     detection_config: DetectionConfig = Field(default_factory=DetectionConfig)
     hybrid_scoring_config: HybridScoringConfig = Field(default_factory=HybridScoringConfig)

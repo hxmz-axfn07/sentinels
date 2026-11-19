@@ -62,3 +62,4 @@ class PacketList(BaseModel):
 
 class UploadLimits(BaseModel):
     max_upload_size_bytes: int = Field(gt=0)
+    max_capture_packets: int = Field(gt=0)
