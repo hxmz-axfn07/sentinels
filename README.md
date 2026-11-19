@@ -11,7 +11,7 @@ SENTINEL is a defensive network intrusion detection system for authorized offlin
 ## Local setup
 
 1. Copy `.env.example` to `.env` and adjust the development credentials if needed.
-2. Optionally copy `frontend/.env.example` to `frontend/.env` to override the API base URL.
+2. Copy `frontend/.env.example` to `frontend/.env`; it points browser requests at the backend's IPv4 loopback address. The allowed browser origin remains `http://localhost:5174` as configured in `.env.example`.
 3. Install backend dependencies and create the Python 3.12 environment:
 
    ```sh
@@ -40,7 +40,7 @@ SENTINEL is a defensive network intrusion detection system for authorized offlin
 7. In another terminal, start the frontend:
 
    ```sh
-   cd frontend && npm run dev -- --host 127.0.0.1 --port 5174
+   cd frontend && npm run dev -- --host localhost --port 5174
    ```
 
 The dashboard is available at <http://localhost:5174>, the API at <http://localhost:8001>, and OpenAPI documentation at <http://localhost:8001/docs>. The MySQL container is exposed only on `127.0.0.1:3307`. Stop the foreground API and frontend with Ctrl+C in their respective terminals; `docker compose stop db` stops only SENTINEL's database container and preserves its volume. `docker compose down` also removes that container but preserves the named volume. Do not use `docker compose down -v` unless intentionally deleting the database data.
